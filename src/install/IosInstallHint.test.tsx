@@ -48,8 +48,14 @@ function stubBrowser(e: InstallEnv) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+/**
+ * The wording now lives as verbatim slices across the illustrated step
+ * captions (InstallStepsDiagram), so the locked assertions read the whole
+ * steps block. Every assertion string below is unchanged — the wording they
+ * pin must still appear, phrase by phrase, across the step captions.
+ */
 function hintText(): string {
-  return screen.getByText(/Add to Home Screen/).textContent ?? "";
+  return screen.getByRole("list").textContent ?? "";
 }
 
 describe("detectIosBrowser", () => {

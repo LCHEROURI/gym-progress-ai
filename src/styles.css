@@ -331,6 +331,68 @@ input {
   color: #ffffff;
 }
 
+/* Illustrated install steps (InstallStepsDiagram): numbered stepper rail,
+   per-step mockup figure, verbatim wording slice as caption. */
+.installSteps {
+  list-style: none;
+  margin: 8px 0;
+  padding: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.installStep {
+  display: grid;
+  grid-template-columns: 28px 84px 1fr;
+  gap: 10px;
+  align-items: start;
+  position: relative;
+  padding-bottom: 12px;
+}
+
+.installStep:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  left: 13px;
+  top: 30px;
+  bottom: 4px;
+  width: 3px;
+  background: #111111;
+  border-radius: 2px;
+}
+
+.stepBadge {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: #111111;
+  color: #ffffff;
+  font-weight: 700;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.stepFigure svg {
+  width: 100%;
+  height: auto;
+  display: block;
+}
+
+.stepCaption {
+  min-width: 0;
+  font-size: 16px;
+}
+
+.installStepNote {
+  display: block;
+  padding-left: 38px;
+}
+
+.installTail {
+  margin: 4px 0 0;
+}
+
 .tip {
   margin: 0;
   font-size: 16px;

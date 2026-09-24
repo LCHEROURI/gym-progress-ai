@@ -24,6 +24,9 @@ describe("INSTALL_COPY", () => {
     for (const copy of Object.values(INSTALL_COPY)) {
       const strings = [
         ...Object.values(copy.steps),
+        ...Object.values(copy.slices.share),
+        ...Object.values(copy.slices.home),
+        ...Object.values(copy.slices.add),
         copy.tail,
         copy.nudge,
         copy.dismiss,
