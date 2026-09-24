@@ -30,10 +30,20 @@ describe("PWA installability assets", () => {
 
   it("service worker precaches the shell and never touches API traffic", () => {
     const sw = readFileSync("public/sw.js", "utf8");
-    expect(sw).toContain("gym-progress-ai-v2");
+    expect(sw).toContain("gym-progress-ai-v3");
     expect(sw).toContain("url.origin !== self.location.origin");
     expect(sw).toContain('caches.match("/index.html")');
     // regression: the cache name is spelled consistently
     expect(sw).not.toContain("CATCH");
+  });
+
+  it("service worker shows raw workout reminders without Firebase imports", () => {
+    const sw = readFileSync("public/sw.js", "utf8");
+    expect(sw).toContain('self.addEventListener("push"');
+    expect(sw).toContain('self.addEventListener("notificationclick"');
+    expect(sw).toContain('tag: "workout-reminder"');
+    // raw push handling keeps config and keys out of committed files
+    expect(sw).not.toContain("importScripts");
+    expect(sw).not.toContain("firebase");
   });
 });

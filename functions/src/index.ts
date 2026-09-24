@@ -20,6 +20,7 @@
 import { GoogleGenAI } from "@google/genai";
 import { initializeApp } from "firebase-admin/app";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import { getMessaging } from "firebase-admin/messaging";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
   WEEKLY_OBSERVATIONS_SYSTEM,
@@ -38,6 +39,12 @@ import {
   sessionFactFrom,
   shouldGenerateReport,
 } from "./report-run";
+import {
+  alreadySent,
+  buildReminderMessage,
+  reminderStateSchema,
+  slotsDue,
+} from "./reminders";
 
 /** Sunday 12:00 — the brief: "Run on Sunday". Noon keeps the calendar date */
 /** stable in UTC (weekStartFor keys on UTC) and is safely after Friday. */
@@ -126,6 +133,77 @@ export const sundayWeeklyReports = onSchedule(
       } catch (err) {
         // One user's failure must never stop the rest of the run.
         console.error(`[weekly] ${uid} failed:`, err);
+      }
+    }
+  },
+);
+
+/** Every 5 minutes — slot windows are 15 minutes wide, so a run delayed by
+ * jitter still catches its slot and the reminderState guard makes delivery
+ * exactly-once. Each device's own timeZone drives its wall clock. */
+export const REMINDER_CRON = "*/5 * * * *";
+
+export const sendWorkoutReminders = onSchedule(
+  {
+    schedule: REMINDER_CRON,
+    memory: "256MiB",
+    timeoutSeconds: 60,
+  },
+  async () => {
+    const db = getFirestore(initializeApp());
+    const now = new Date();
+    const users = await db.collection("users").get();
+
+    for (const user of users.docs) {
+      const uid = user.id;
+      try {
+        const profileSnap = await user.ref.collection("settings").doc("profile").get();
+        const reminderTimes = (profileSnap.data()?.reminderTimes ?? {}) as Record<string, string>;
+        if (Object.keys(reminderTimes).length === 0) continue;
+
+        const tokens = await user.ref.collection("fcmTokens").get();
+        for (const t of tokens.docs) {
+          const { token, timeZone } = t.data() as { token: string; timeZone: string };
+          for (const slot of slotsDue({ reminderTimes, timeZone, now })) {
+            const stateSnap = await user.ref.collection("reminderState").doc(t.id).get();
+            const lastSlot = stateSnap.data()?.slot as string | undefined;
+            if (alreadySent(lastSlot, slot.slot)) continue;
+
+            const msg = buildReminderMessage(slot.dayKey);
+            try {
+              await getMessaging().send({
+                token,
+                data: { title: msg.title, body: msg.body, url: "/" },
+                webpush: {
+                  notification: {
+                    title: msg.title,
+                    body: msg.body,
+                    icon: "/icons/icon-192.png",
+                    tag: "workout-reminder",
+                  },
+                  fcmOptions: { link: "/" },
+                },
+              });
+              const state = reminderStateSchema.parse({
+                tokenId: t.id,
+                slot: slot.slot,
+                sentAt: new Date(),
+              });
+              await user.ref.collection("reminderState").doc(t.id).set(state);
+              console.log(`[reminders] ${uid}/${t.id}: sent ${slot.slot}`);
+            } catch (err) {
+              const code = (err as { code?: string }).code ?? "";
+              if (code.includes("registration-token-not-registered")) {
+                // Dead device token — stop sending to it.
+                await t.ref.delete();
+              }
+              console.error(`[reminders] ${uid}/${t.id} send failed:`, err);
+            }
+          }
+        }
+      } catch (err) {
+        // One user's failure must never stop the rest of the run.
+        console.error(`[reminders] ${uid} failed:`, err);
       }
     }
   },

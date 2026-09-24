@@ -1,5 +1,5 @@
 // Bump the version to flush stale precached shell on the next activation.
-const CACHE = "gym-progress-ai-v2";
+const CACHE = "gym-progress-ai-v3";
 const CORE = [
   "/",
   "/index.html",
@@ -59,5 +59,46 @@ self.addEventListener("fetch", (event) => {
           return res;
         }),
     ),
+  );
+});
+
+// Workout reminders (FCM web push). Handled raw on purpose: the payload is the
+// message's data/notification JSON, so this worker never imports Firebase and
+// no config or keys live in a committed file.
+self.addEventListener("push", (event) => {
+  let payload = {};
+  try {
+    payload = event.data ? event.data.json() : {};
+  } catch {
+    payload = { data: { body: event.data ? event.data.text() : "" } };
+  }
+  const data = payload.data || {};
+  const note = payload.notification || {};
+  const title = data.title || note.title || "Gym Progress AI";
+  const body = data.body || note.body || "Workout time — today’s session is ready when you are.";
+  const url = data.url || "/";
+  event.waitUntil(
+    self.registration.showNotification(title, {
+      body,
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      tag: "workout-reminder",
+      data: { url },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    self.clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((list) => {
+        for (const client of list) {
+          if ("focus" in client) return client.focus();
+        }
+        return self.clients.openWindow(url);
+      }),
   );
 });

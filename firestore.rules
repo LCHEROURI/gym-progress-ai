@@ -32,6 +32,10 @@ rules_version = '2';
 // users/{uid}/installEvents/{id}: id <=40, type 'prompt_offered'|'prompt_result'|'installed',
 //   outcome 'accepted'|'dismissed'|null, method 'browser_prompt'|'home_screen'|null,
 //   userAgent <=400, createdAt timestamp (append-only install funnel)
+// users/{uid}/fcmTokens/{id}: id <=128 (= doc id), token <=4096, timeZone <=64,
+//   platform 'web', createdAt/updatedAt timestamps (device push registration)
+// users/{uid}/reminderState/{id}: tokenId <=128, slot 'YYYY-MM-DDTHH:mm',
+//   sentAt timestamp (server-derived send guard — Admin SDK only)
 // =============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -222,6 +226,16 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp;
     }
 
+    function isValidFcmToken() {
+      return hasOnly(['id','token','timeZone','platform','createdAt','updatedAt'])
+        && hasAll(['id','token','timeZone','platform','createdAt','updatedAt'])
+        && request.resource.data.id is string && request.resource.data.id.size() <= 128
+        && str('token', 1, 4096) && str('timeZone', 1, 64)
+        && request.resource.data.platform == 'web'
+        && request.resource.data.createdAt is timestamp
+        && request.resource.data.updatedAt is timestamp;
+    }
+
     // ---------- paths ----------
     match /users/{uid} {
       allow read: if owns(uid);
@@ -264,6 +278,18 @@ service cloud.firestore {
         // append-only install funnel: observability, create + read, never edit
         allow read: if owns(uid);
         allow create: if owns(uid) && isValidInstallEvent();
+      }
+      match /fcmTokens/{id} {
+        // device push registration: owner-managed; the reminder function
+        // cleans dead tokens via the Admin SDK (bypasses rules)
+        allow read: if owns(uid);
+        allow create, update: if owns(uid)
+          && request.resource.data.id == id && isValidFcmToken();
+      }
+      match /reminderState/{id} {
+        // server-derived send guard (Admin SDK bypasses rules): owner reads
+        allow read: if owns(uid);
+        allow write: if false;
       }
       match /workoutSessions/{sid} {
         allow read: if owns(uid);

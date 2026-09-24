@@ -18,6 +18,9 @@ users/{uid}/exerciseStats/{exerciseKey}          ← derived cache
 users/{uid}/aiRecommendations/{recommendationId}
 users/{uid}/weeklyReports/{reportId}
 users/{uid}/personalRecords/{recordId}
+users/{uid}/installEvents/{eventId}            ← install funnel (append-only)
+users/{uid}/fcmTokens/{tokenId}                ← device push registration
+users/{uid}/reminderState/{tokenId}            ← server-derived send guard
 ```
 
 ## users/{uid}
@@ -154,6 +157,41 @@ rebuilt.
 
 Written only when history proves a new highest weight.
 
+## fcmTokens/{tokenId} — device push registration
+
+| Field | Type | Notes |
+|---|---|---|
+| id | string ≤128 | equals doc id; deterministic hash of `token` |
+| token | string ≤4096 | FCM registration token |
+| timeZone | string ≤64 | IANA zone of the device (reminder wall clock) |
+| platform | `web` | |
+| createdAt / updatedAt | timestamp | refreshed on each registration |
+
+Owner create/update with full validation; the reminder function deletes dead
+tokens (FCM `registration-token-not-registered`) via the Admin SDK.
+
+## reminderState/{tokenId} — server-derived send guard
+
+| Field | Type | Notes |
+|---|---|---|
+| tokenId | string ≤128 | fcmTokens doc id |
+| slot | string `YYYY-MM-DDTHH:mm` | the reminder occurrence already sent |
+| sentAt | timestamp | |
+
+Written only by the reminder function (Admin SDK); owner reads, client writes
+denied. Prevents double-sends when scheduler runs overlap a slot window.
+
+## installEvents/{eventId} — install funnel (declared late)
+
+| Field | Type | Notes |
+|---|---|---|
+| id | string ≤40 | |
+| type | `prompt_offered` \| `prompt_result` \| `installed` | |
+| outcome | `accepted` \| `dismissed` \| null | on `prompt_result` |
+| method | `browser_prompt` \| `home_screen` \| null | on `installed` |
+| userAgent | string ≤400 | |
+| createdAt | timestamp | append-only |
+
 ## Indexes
 
 - `workoutSessions`: `scheduledDate` DESC (+ `status` equality for the
@@ -207,6 +245,14 @@ server-only (Sunday function).
 Amendment 2 (2026-09-24): `weeklyReports` becomes owner **create-only**
 (append-only, never edited) so V1 can save reports permanently before the
 Blaze/Functions phase; the Sunday function keeps its admin-SDK write path.
+
+Amendment 3 (2026-09-24, declared here first per the schema-change policy):
+push workout reminders add two collections — `fcmTokens` (owner-managed device
+push registrations, deterministic doc id per token) and `reminderState`
+(per-token send guard, Admin-SDK-written only). Additive; no existing
+collections change. Also declared late: `installEvents` (append-only install
+funnel, owner create + read) landed in commit `0eb05ae` and is now listed in
+the tree above — no fields change with this amendment.
 
 ## Schema-change policy
 

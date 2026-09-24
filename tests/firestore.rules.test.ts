@@ -120,4 +120,33 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
     await assertSucceeds(db.doc("users/u1/exerciseStats/leg-press").set(stat));
     await assertFails(db.doc("users/u1/exerciseStats/leg-press").set({ ...stat, lastWeight: -5 }));
   });
+
+  it("fcmTokens: owner registration validated, id bound to doc, cross-user denied", async () => {
+    const token = {
+      id: "ta", token: "fcm-token-abc", timeZone: "America/New_York", platform: "web",
+      createdAt: new Date(0), updatedAt: new Date(0),
+    };
+    const db = env.authenticatedContext("u1").firestore();
+    await assertSucceeds(db.doc("users/u1/fcmTokens/ta").set(token));
+    await assertFails(db.doc("users/u1/fcmTokens/tb").set({ ...token, id: "tb", platform: "ios" }));
+    await assertFails(db.doc("users/u1/fcmTokens/tc").set({ ...token, id: "tc", token: "x".repeat(4097) }));
+    await assertFails(db.doc("users/u1/fcmTokens/td").set({ ...token, id: "td", extra: 1 }));
+    await assertFails(db.doc("users/u1/fcmTokens/tz").set(token)); // id != doc id
+    await assertFails(env.authenticatedContext("u2").firestore().doc("users/u1/fcmTokens/ta").get());
+  });
+
+  it("reminderState is the server's send guard: owner reads, client never writes", async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("users/u1/reminderState/ta").set({
+        tokenId: "ta", slot: "2026-09-25T07:30", sentAt: new Date(0),
+      });
+    });
+    const db = env.authenticatedContext("u1").firestore();
+    await assertSucceeds(db.doc("users/u1/reminderState/ta").get());
+    await assertFails(db.doc("users/u1/reminderState/ta").set({
+      tokenId: "ta", slot: "2026-09-26T07:30", sentAt: new Date(0),
+    }));
+    await assertFails(db.doc("users/u1/reminderState/ta").delete());
+    await assertFails(env.authenticatedContext("u2").firestore().doc("users/u1/reminderState/ta").get());
+  });
 });

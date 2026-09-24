@@ -14,6 +14,7 @@ import { buildCelebration, type Celebration } from "../workout/streak";
 import StreakToast from "../workout/StreakToast";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
 import { useInstallAnalytics } from "../install/useInstallAnalytics";
+import PushReminders from "../reminders/PushReminders";
 import BottomNav, { type NavView } from "../nav/BottomNav";
 import { viewFromSearch } from "../nav/screenParam";
 import CoachScreen from "./CoachScreen";
@@ -98,6 +99,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
         ) : (
           <p>Loading…</p>
         )}
+        <PushReminders app={app} db={db} uid={uid} />
         {nav}
       </div>
     );
