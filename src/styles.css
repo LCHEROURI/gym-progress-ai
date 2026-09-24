@@ -144,16 +144,23 @@ button:focus-visible,
   min-width: 0;
   min-height: 64px;
   padding: 0 2px;
-  font-size: 15px;
+  /* Labels stay on one line and words never split ("PROGRE/SS"); the size
+     scales with the viewport so the longest tab (PROGRESS) fits its cell at
+     every width — measured, not guessed: 6em word width vs cell width. */
+  font-size: min(14px, 2.3vw);
+  letter-spacing: -0.01em;
   font-weight: 700;
   background: none;
   border: none;
-  overflow-wrap: anywhere;
+  white-space: nowrap;
+  overflow-wrap: normal;
 }
 
 @media (max-width: 430px) {
-  .bottomNav button {
-    font-size: 12px;
+  /* Give the tab labels the gear cell's width back on phones (needs the
+     higher specificity: .bottomNav button otherwise wins the flex cascade). */
+  .bottomNav button.gearButton {
+    flex: 0 0 44px;
   }
 }
 
