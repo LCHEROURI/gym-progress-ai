@@ -34,6 +34,17 @@ describe("recordInstallEvent", () => {
     expect(data.createdAt).toBeInstanceOf(Date);
   });
 
+  it("records nudge funnel events with null outcome and method", async () => {
+    await recordInstallEvent({ db: {} as never }, "u1", { type: "nudge_shown" });
+    await recordInstallEvent({ db: {} as never }, "u1", { type: "nudge_dismissed" });
+    expect(mocks.setDoc).toHaveBeenCalledTimes(2);
+    for (const call of mocks.setDoc.mock.calls) {
+      const [, data] = call as unknown as [string, Record<string, unknown>];
+      expect(data.outcome).toBeNull();
+      expect(data.method).toBeNull();
+    }
+  });
+
   it("refuses to write an invalid event", async () => {
     await expect(
       recordInstallEvent({ db: {} as never }, "u1", {

@@ -17,6 +17,9 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
       projectId: "demo-gym-progress-ai",
       firestore: { rules: readFileSync("firestore.rules", "utf8") },
     });
+    // Re-runnable suite: the emulator daemon persists docs across runs and the
+    // cases use fixed ids (create-vs-update semantics would flip otherwise).
+    await env.clearFirestore();
   });
 
   afterAll(async () => {
@@ -148,5 +151,19 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
     }));
     await assertFails(db.doc("users/u1/reminderState/ta").delete());
     await assertFails(env.authenticatedContext("u2").firestore().doc("users/u1/reminderState/ta").get());
+  });
+
+  it("installEvents: nudge types append, unknown types and edits denied", async () => {
+    const event = {
+      id: "ev1", type: "nudge_shown", outcome: null, method: null,
+      userAgent: "Mozilla/5.0 (iPhone)", createdAt: new Date(0),
+    };
+    const db = env.authenticatedContext("u1").firestore();
+    await assertSucceeds(db.doc("users/u1/installEvents/ev1").set(event));
+    await assertSucceeds(db.doc("users/u1/installEvents/ev2").set({ ...event, id: "ev2", type: "nudge_dismissed" }));
+    await assertSucceeds(db.doc("users/u1/installEvents/ev3").set({ ...event, id: "ev3", type: "prompt_offered" }));
+    await assertFails(db.doc("users/u1/installEvents/ev4").set({ ...event, id: "ev4", type: "nudge_clicked" }));
+    await assertFails(db.doc("users/u1/installEvents/ev1").update({ type: "installed" }));
+    await assertFails(env.authenticatedContext("u2").firestore().doc("users/u1/installEvents/ev1").get());
   });
 });

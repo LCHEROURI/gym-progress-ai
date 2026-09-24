@@ -4,6 +4,14 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import IosNudgeBanner from "./IosNudgeBanner";
 
+const mocks = vi.hoisted(() => ({
+  trackInstallEvent: vi.fn(),
+}));
+
+vi.mock("./install-analytics", () => ({
+  trackInstallEvent: mocks.trackInstallEvent,
+}));
+
 const IPHONE_SAFARI =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1";
 const IPHONE_CHROME =
@@ -22,7 +30,10 @@ function stubBrowser(opts: { userAgent?: string; standalone?: boolean; appleStan
   }));
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  vi.clearAllMocks();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("IosNudgeBanner", () => {
@@ -100,6 +111,31 @@ describe("IosNudgeBanner", () => {
     fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("dialog")).toBeNull();
+  });
+
+  it("records nudge_shown when displayed, nothing off iOS", () => {
+    stubBrowser();
+    const { unmount } = render(<IosNudgeBanner />);
+    expect(mocks.trackInstallEvent).toHaveBeenCalledWith({ type: "nudge_shown" });
+    unmount();
+    vi.clearAllMocks();
+    stubBrowser({ userAgent: "Mozilla/5.0 (Windows NT 10.0) Chrome/141.0.0.0" });
+    render(<IosNudgeBanner />);
+    expect(mocks.trackInstallEvent).not.toHaveBeenCalled();
+  });
+
+  it("records nudge_dismissed only on DISMISS, not on sheet close", () => {
+    stubBrowser();
+    render(<IosNudgeBanner />);
+    fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
+    fireEvent.click(screen.getByRole("button", { name: "CLOSE" }));
+    expect(mocks.trackInstallEvent).not.toHaveBeenCalledWith({
+      type: "nudge_dismissed",
+    });
+    fireEvent.click(screen.getByRole("button", { name: "DISMISS" }));
+    expect(mocks.trackInstallEvent).toHaveBeenCalledWith({
+      type: "nudge_dismissed",
+    });
   });
 
   it("dismisses for good across renders", () => {

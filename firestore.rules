@@ -29,7 +29,8 @@ rules_version = '2';
 //   nextWeek list<=20, createdAt
 // personalRecords/{id}: exerciseKey <=60, weight 0..2000, reps 0..200,
 //   sessionId <=40, achievedAt timestamp
-// users/{uid}/installEvents/{id}: id <=40, type 'prompt_offered'|'prompt_result'|'installed',
+// users/{uid}/installEvents/{id}: id <=40, type 'prompt_offered'|'prompt_result'
+//   |'installed'|'nudge_shown'|'nudge_dismissed',
 //   outcome 'accepted'|'dismissed'|null, method 'browser_prompt'|'home_screen'|null,
 //   userAgent <=400, createdAt timestamp (append-only install funnel)
 // users/{uid}/fcmTokens/{id}: id <=128 (= doc id), token <=4096, timeZone <=64,
@@ -217,7 +218,8 @@ service cloud.firestore {
       return hasOnly(['id','type','outcome','method','userAgent','createdAt'])
         && hasAll(['id','type','outcome','method','userAgent','createdAt'])
         && request.resource.data.id is string && request.resource.data.id.size() <= 40
-        && request.resource.data.type in ['prompt_offered','prompt_result','installed']
+        && request.resource.data.type in ['prompt_offered','prompt_result','installed',
+          'nudge_shown','nudge_dismissed']
         && (request.resource.data.outcome == null
           || request.resource.data.outcome in ['accepted','dismissed'])
         && (request.resource.data.method == null

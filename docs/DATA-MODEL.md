@@ -186,7 +186,7 @@ denied. Prevents double-sends when scheduler runs overlap a slot window.
 | Field | Type | Notes |
 |---|---|---|
 | id | string ≤40 | |
-| type | `prompt_offered` \| `prompt_result` \| `installed` | |
+| type | `prompt_offered` \| `prompt_result` \| `installed` \| `nudge_shown` \| `nudge_dismissed` | |
 | outcome | `accepted` \| `dismissed` \| null | on `prompt_result` |
 | method | `browser_prompt` \| `home_screen` \| null | on `installed` |
 | userAgent | string ≤400 | |
@@ -253,6 +253,13 @@ push registrations, deterministic doc id per token) and `reminderState`
 collections change. Also declared late: `installEvents` (append-only install
 funnel, owner create + read) landed in commit `0eb05ae` and is now listed in
 the tree above — no fields change with this amendment.
+
+Amendment 4 (2026-09-24, declared here first per the schema-change policy):
+install funnel observability for the iOS nudge banner adds two event types —
+`nudge_shown` (recorded once per actual display) and `nudge_dismissed` (the
+DISMISS tap only; closing the steps sheet is not a dismissal). Enum extension
+only: no fields change, `outcome`/`method` stay null for both. Client Zod,
+rules whitelist, and emulator tests ship in the same deploy.
 
 ## Schema-change policy
 

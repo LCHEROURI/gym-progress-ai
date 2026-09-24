@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import InstallStepsSheet from "./InstallStepsSheet";
+import { trackInstallEvent } from "./install-analytics";
 import { currentInstallEnv, currentLanguages, detectIosBrowser } from "./iosBrowser";
 import { installCopy } from "./i18n";
 import { isAppleStandalone } from "./useInstallPrompt";
@@ -33,10 +34,19 @@ function markDismissed(): void {
 export default function IosNudgeBanner() {
   const [dismissed, setDismissed] = useState(alreadyDismissed);
   const [stepsOpen, setStepsOpen] = useState(false);
-  if (dismissed) return null;
   const env = currentInstallEnv();
-  if (detectIosBrowser(env) === null) return null;
-  if (env.standalone || isAppleStandalone()) return null;
+  const visible =
+    !dismissed &&
+    detectIosBrowser(env) !== null &&
+    !env.standalone &&
+    !isAppleStandalone();
+
+  // Observability: one nudge_shown per actual display (fire-and-forget).
+  useEffect(() => {
+    if (visible) trackInstallEvent({ type: "nudge_shown" });
+  }, [visible]);
+
+  if (!visible) return null;
   const copy = installCopy(currentLanguages());
   return (
     <>
@@ -53,6 +63,7 @@ export default function IosNudgeBanner() {
           type="button"
           className="nudgeDismiss"
           onClick={() => {
+            trackInstallEvent({ type: "nudge_dismissed" });
             markDismissed();
             setDismissed(true);
           }}

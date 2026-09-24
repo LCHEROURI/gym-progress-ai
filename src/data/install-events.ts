@@ -6,7 +6,13 @@ import type { RepoCtx } from "./session-repository";
 export const installEventSchema = z
   .object({
     id: z.string().min(1).max(40),
-    type: z.enum(["prompt_offered", "prompt_result", "installed"]),
+    type: z.enum([
+      "prompt_offered",
+      "prompt_result",
+      "installed",
+      "nudge_shown",
+      "nudge_dismissed",
+    ]),
     outcome: z.enum(["accepted", "dismissed"]).nullable(),
     method: z.enum(["browser_prompt", "home_screen"]).nullable(),
     userAgent: z.string().max(400),
