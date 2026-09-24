@@ -43,7 +43,7 @@ const kindByKey = new Map(
 
 const iso = (d: Date): string => d.toISOString().slice(0, 10);
 
-function addDays(dateStr: string, days: number): string {
+export function addDays(dateStr: string, days: number): string {
   const d = new Date(`${dateStr}T00:00:00Z`);
   d.setUTCDate(d.getUTCDate() + days);
   return iso(d);

@@ -17,6 +17,25 @@ export interface ProgressFacts {
   exercises: ExerciseFact[];
 }
 
+/** Lightweight session facts (no exercise reads) — streaks and week math. */
+export async function fetchSessionFacts(
+  ctx: RepoCtx,
+  uid: string,
+  max = 60,
+): Promise<SessionFact[]> {
+  const snap = await getDocs(
+    query(
+      collection(ctx.db, `users/${uid}/workoutSessions`),
+      orderBy("scheduledDate", "desc"),
+      limit(max),
+    ),
+  );
+  return snap.docs.map((d) => {
+    const s = workoutSessionSchema.parse(d.data());
+    return { id: s.id, scheduledDate: s.scheduledDate, status: s.status };
+  });
+}
+
 /** All recorded facts for the progress dashboard, newest sessions first. */
 export async function fetchProgressFacts(
   ctx: RepoCtx,

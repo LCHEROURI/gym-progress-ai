@@ -4,11 +4,14 @@ import { initFirebase } from "../data/firebase";
 import { fetchProfile, saveProfile, type Profile } from "../data/settings";
 import { useSyncStatus } from "../data/useSyncStatus";
 import { fetchHistory, type HistoryRow } from "../data/history";
+import { fetchSessionFacts } from "../data/progress";
 import { isoDate } from "../domain/session";
 import { buildRecoveryInfo } from "../today/recovery";
 import { parseEnv } from "../shared/env";
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import { buildCompletionSummary } from "../workout/summary";
+import { buildCelebration, type Celebration } from "../workout/streak";
+import StreakToast from "../workout/StreakToast";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
 import BottomNav, { type NavView } from "../nav/BottomNav";
 import CoachScreen from "./CoachScreen";
@@ -158,6 +161,39 @@ function ActiveFlow(props: {
     weightUnit: props.profile?.weightUnit,
   });
 
+  const [celebration, setCelebration] = useState<Celebration | null>(null);
+  const completedDate = props.date;
+
+  // Fresh facts at completion so the streak is right even in a long-lived tab.
+  useEffect(() => {
+    if (flow.phase !== "complete") return;
+    let cancelled = false;
+    fetchSessionFacts({ db: props.db }, props.uid, 60)
+      .then((facts) => {
+        if (cancelled) return;
+        const dates = facts
+          .filter((f) => f.status === "completed")
+          .map((f) => f.scheduledDate);
+        dates.push(completedDate); // the session just finished may not be in the fetch yet
+        setCelebration(
+          buildCelebration({ completedDates: dates, today: new Date() }),
+        );
+      })
+      .catch(() => {
+        if (cancelled) return;
+        // Offline: never fabricate streak numbers we cannot compute.
+        setCelebration({
+          title: "WORKOUT SAVED!",
+          body: "Your weekly streak will sync when you’re back online.",
+          perfectWeek: false,
+          streakWeeks: 0,
+        });
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [flow.phase, props.db, props.uid, completedDate]);
+
   if (flow.phase === "complete" && flow.session) {
     return (
       <>
@@ -173,6 +209,7 @@ function ActiveFlow(props: {
             props.onNavigate("today");
           }}
         />
+        {celebration && <StreakToast celebration={celebration} />}
         <BottomNav view={props.view} onNavigate={props.onNavigate} />
       </>
     );

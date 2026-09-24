@@ -54,7 +54,7 @@ export default function InstallToast() {
 
   if (!visible) return null;
   return (
-    <div className="installToast" role="status">
+    <div className="appToast" role="status">
       <p>Thanks for installing Gym Progress AI!</p>
       <p>It now opens full screen from your Home Screen.</p>
       <button

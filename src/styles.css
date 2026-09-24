@@ -233,7 +233,7 @@ button:focus-visible,
   border-radius: 12px;
 }
 
-.installToast {
+.appToast {
   position: fixed;
   left: 16px;
   right: 16px;
@@ -248,7 +248,7 @@ button:focus-visible,
   z-index: 10;
 }
 
-.installToast p {
+.appToast p {
   margin: 0 0 8px;
   font-size: 20px;
 }
