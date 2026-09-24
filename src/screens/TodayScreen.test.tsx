@@ -134,3 +134,39 @@ describe("TodayScreen one-tap weight pre-fill", () => {
     expect(onPickWeight).toHaveBeenCalledWith("chest-press", 50);
   });
 });
+
+describe("Recovery day actions (a rest day is still usable)", () => {
+  const recovery = buildRecoveryInfo([], new Date("2026-09-24T12:00:00Z"));
+
+  it("offers to start the next workout today", () => {
+    const onStartWorkout = vi.fn();
+    render(
+      <TodayScreen
+        today={new Date("2026-09-24T09:00:00")}
+        recovery={recovery}
+        onStartWorkout={onStartWorkout}
+      />,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "START A WORKOUT TODAY" }),
+    );
+    expect(onStartWorkout).toHaveBeenCalledOnce();
+  });
+
+  it("jumps to Progress and the Coach from the rest day", () => {
+    const onSeeProgress = vi.fn();
+    const onAskCoach = vi.fn();
+    render(
+      <TodayScreen
+        today={new Date("2026-09-24T09:00:00")}
+        recovery={recovery}
+        onSeeProgress={onSeeProgress}
+        onAskCoach={onAskCoach}
+      />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "SEE PROGRESS" }));
+    fireEvent.click(screen.getByRole("button", { name: "ASK THE COACH" }));
+    expect(onSeeProgress).toHaveBeenCalledOnce();
+    expect(onAskCoach).toHaveBeenCalledOnce();
+  });
+});

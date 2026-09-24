@@ -6,7 +6,7 @@ import { useSyncStatus } from "../data/useSyncStatus";
 import { fetchHistory, type HistoryRow } from "../data/history";
 import { fetchSessionFacts } from "../data/progress";
 import { isoDate } from "../domain/session";
-import { buildRecoveryInfo } from "../today/recovery";
+import { buildRecoveryInfo, nextWorkout } from "../today/recovery";
 import { parseEnv } from "../shared/env";
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import { buildCompletionSummary } from "../workout/summary";
@@ -40,7 +40,10 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
   );
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
-  const template = templateForWeekday(today.getDay());
+  // Rest days (Tue/Thu/Sat/Sun) can still work out: the plan picked via
+  // START A WORKOUT TODAY takes over the day until the session is done.
+  const [offPlan, setOffPlan] = useState<WorkoutTemplate | null>(null);
+  const template = templateForWeekday(today.getDay()) ?? offPlan;
   const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
   useInstallAnalytics(db, uid);
@@ -144,7 +147,13 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
       info && profile?.aiRecommendationsEnabled === false ? { ...info, tip: "" } : info;
     return (
       <div className={cls}>
-        <TodayScreen today={today} recovery={recoveryInfo} />
+        <TodayScreen
+          today={today}
+          recovery={recoveryInfo}
+          onStartWorkout={() => setOffPlan(nextWorkout(today).template)}
+          onSeeProgress={() => navigate("progress")}
+          onAskCoach={() => navigate("coach")}
+        />
         {nav}
       </div>
     );
@@ -160,6 +169,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
         profile={profile}
         view={view}
         onNavigate={navigate}
+        onResetPlan={() => setOffPlan(null)}
       />
     </div>
   );
@@ -174,6 +184,8 @@ function ActiveFlow(props: {
   profile: Profile | null;
   view: NavView;
   onNavigate: (v: NavView) => void;
+  /** Clears an off-plan pick so the rest day comes back after DONE. */
+  onResetPlan?: () => void;
 }) {
   const flow = useWorkoutSession({
     db: props.db,
@@ -247,6 +259,7 @@ function ActiveFlow(props: {
           })}
           onDone={() => {
             flow.reset();
+            props.onResetPlan?.();
             props.onNavigate("today");
           }}
         />
@@ -261,6 +274,7 @@ function ActiveFlow(props: {
       <>
         <TodayScreen
           today={new Date()}
+          plan={props.template}
           onStart={() => void flow.start(pickedWeights)}
           previousWeights={planPreview.previousWeights}
           nextWeights={planPreview.nextWeights}

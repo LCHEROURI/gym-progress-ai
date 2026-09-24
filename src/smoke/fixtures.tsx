@@ -110,6 +110,9 @@ export const fixtures: Record<SmokeScreen, () => ReactElement> = {
   today: () => (
     <TodayScreen
       today={new Date("2026-09-24T09:00:00")}
+      onStartWorkout={() => undefined}
+      onSeeProgress={() => undefined}
+      onAskCoach={() => undefined}
       recovery={buildRecoveryInfo(
         [
           {

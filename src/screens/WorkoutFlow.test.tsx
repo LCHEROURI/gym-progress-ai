@@ -169,3 +169,30 @@ describe("one-tap weight pre-fill (tap NEXT → start → prefilled)", () => {
     }
   });
 });
+
+describe("rest day is usable (start the next workout early)", () => {
+  it("START A WORKOUT TODAY flips to the next plan and the workout runs", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-24T09:00:00"));
+    try {
+      render(<WorkoutFlow uid="u1" />);
+      // Thursday is a rest day: the recovery screen greets the user.
+      expect(
+        await screen.findByRole("heading", { name: "RECOVERY DAY" }),
+      ).toBeInTheDocument();
+      fireEvent.click(
+        screen.getByRole("button", { name: "START A WORKOUT TODAY" }),
+      );
+      // The next planned workout (Friday) becomes today's plan.
+      expect(
+        await screen.findByRole("heading", { name: "FULL BODY + WALK" }),
+      ).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: "START WORKOUT" }));
+      expect(
+        await screen.findByRole("button", { name: "FINISH WORKOUT" }),
+      ).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

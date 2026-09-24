@@ -393,6 +393,43 @@ input {
   margin: 4px 0 0;
 }
 
+/* Recovery day: card facts + tappable CTAs (was a bare text wall). */
+.recoveryGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.recoveryCard {
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+  align-content: start;
+}
+
+.recoveryCard .dateLine {
+  margin: 0;
+}
+
+.recoveryCopy {
+  margin: 0;
+  font-size: 16px;
+}
+
+.ctaRow {
+  display: flex;
+  gap: 10px;
+  margin: 12px 0;
+}
+
+.ctaRow .secondaryButton {
+  flex: 1 1 0;
+  min-height: 48px;
+}
+
 .tip {
   margin: 0;
   font-size: 16px;

@@ -6,6 +6,8 @@ import type { NextWeight } from "../workout/usePlanPreview";
 
 interface Props {
   today: Date;
+  /** Off-plan day (rest-day workout): the plan to show instead of the weekday's. */
+  plan?: WorkoutTemplate;
   onStart?: () => void;
   recovery?: RecoveryInfo;
   /** Last completed weight per exercise key (from exerciseStats). */
@@ -16,20 +18,28 @@ interface Props {
   pickedWeights?: Record<string, number | undefined>;
   /** Tap of a suggestion line: the weight to pick, or null to un-pick. */
   onPickWeight?: (exerciseKey: string, weight: number | null) => void;
+  /** Recovery-day actions: start the next workout early, or jump to a tab. */
+  onStartWorkout?: () => void;
+  onSeeProgress?: () => void;
+  onAskCoach?: () => void;
   weightUnit?: "lb" | "kg";
 }
 
 export default function TodayScreen({
   today,
+  plan,
   onStart,
   recovery,
   previousWeights,
   nextWeights,
   pickedWeights,
   onPickWeight,
+  onStartWorkout,
+  onSeeProgress,
+  onAskCoach,
   weightUnit,
 }: Props) {
-  const template = templateForWeekday(today.getDay());
+  const template = plan ?? templateForWeekday(today.getDay());
   const dateLine = today.toLocaleDateString("en-US", {
     weekday: "long",
     month: "long",
@@ -52,7 +62,12 @@ export default function TodayScreen({
           weightUnit={weightUnit}
         />
       ) : (
-        <RecoveryDay info={recovery} />
+        <RecoveryDay
+          info={recovery}
+          onStartWorkout={onStartWorkout}
+          onSeeProgress={onSeeProgress}
+          onAskCoach={onAskCoach}
+        />
       )}
       <InstallAppButton />
     </section>
@@ -124,43 +139,68 @@ function WorkoutPlan({
   );
 }
 
-function RecoveryDay({ info }: { info?: RecoveryInfo }) {
+function RecoveryDay({
+  info,
+  onStartWorkout,
+  onSeeProgress,
+  onAskCoach,
+}: {
+  info?: RecoveryInfo;
+  onStartWorkout?: () => void;
+  onSeeProgress?: () => void;
+  onAskCoach?: () => void;
+}) {
   return (
     <>
       <h2 className="workoutName">RECOVERY DAY</h2>
       <p className="recoveryCopy">Rest, hydrate, and come back strong.</p>
+      {/* Lead with actions — a rest day is still a screen you can use. */}
+      <button type="button" className="primaryButton" onClick={onStartWorkout}>
+        START A WORKOUT TODAY
+      </button>
+      <div className="ctaRow">
+        <button type="button" className="secondaryButton" onClick={onSeeProgress}>
+          SEE PROGRESS
+        </button>
+        <button type="button" className="secondaryButton" onClick={onAskCoach}>
+          ASK THE COACH
+        </button>
+      </div>
       {info && (
-        <>
-          <p className="eyebrow">NEXT WORKOUT</p>
-          <p className="dateLine">
-            {info.next.weekday} · {info.next.name}
-          </p>
-          <p className="recoveryCopy">{info.next.dateLabel}</p>
-
-          <p className="eyebrow">LAST COMPLETED</p>
-          {info.last ? (
-            <>
-              <p className="dateLine">
-                {info.last.weekday} · {info.last.name}
-              </p>
-              <p className="recoveryCopy">{info.last.dateLabel}</p>
-            </>
-          ) : (
-            <p className="dateLine">No workouts yet</p>
-          )}
-
-          <p className="eyebrow">THIS WEEK</p>
-          <p className="dateLine">
-            {info.week.completed} of {info.week.planned} complete
-          </p>
-
+        <div className="recoveryGrid">
+          <div className="recoveryCard">
+            <p className="eyebrow">NEXT WORKOUT</p>
+            <p className="dateLine">
+              {info.next.weekday} · {info.next.name}
+            </p>
+            <p className="recoveryCopy">{info.next.dateLabel}</p>
+          </div>
+          <div className="recoveryCard">
+            <p className="eyebrow">LAST COMPLETED</p>
+            {info.last ? (
+              <>
+                <p className="dateLine">
+                  {info.last.weekday} · {info.last.name}
+                </p>
+                <p className="recoveryCopy">{info.last.dateLabel}</p>
+              </>
+            ) : (
+              <p className="dateLine">No workouts yet</p>
+            )}
+          </div>
+          <div className="recoveryCard">
+            <p className="eyebrow">THIS WEEK</p>
+            <p className="dateLine">
+              {info.week.completed} of {info.week.planned} complete
+            </p>
+          </div>
           {info.tip && (
-            <>
+            <div className="recoveryCard">
               <p className="eyebrow">RECOVERY TIP</p>
               <p className="recoveryCopy">{info.tip}</p>
-            </>
+            </div>
           )}
-        </>
+        </div>
       )}
     </>
   );
