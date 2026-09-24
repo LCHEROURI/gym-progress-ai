@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { currentInstallEnv, detectIosBrowser } from "./iosBrowser";
+import { currentInstallEnv, currentLanguages, detectIosBrowser } from "./iosBrowser";
+import { installCopy } from "./i18n";
 import { isAppleStandalone } from "./useInstallPrompt";
 
 const DISMISS_KEY = "gpa-install-nudge-dismissed";
@@ -24,8 +25,9 @@ function markDismissed(): void {
 
 /**
  * One-time install nudge on the TODAY screen for iOS visitors (every iOS
- * browser installs manually through a Share menu). Hidden off iOS, once
- * installed, and after dismissal — full per-browser steps live in Settings.
+ * browser installs manually through a Share menu), in the device's language.
+ * Hidden off iOS, once installed, and after dismissal — full per-browser steps
+ * live in Settings.
  */
 export default function IosNudgeBanner() {
   const [dismissed, setDismissed] = useState(alreadyDismissed);
@@ -33,9 +35,10 @@ export default function IosNudgeBanner() {
   const env = currentInstallEnv();
   if (detectIosBrowser(env) === null) return null;
   if (env.standalone || isAppleStandalone()) return null;
+  const copy = installCopy(currentLanguages());
   return (
     <div className="nudgeBanner" role="note" aria-label="Install app">
-      <p>Get the app: open Share and tap &ldquo;Add to Home Screen&rdquo;, then Add.</p>
+      <p dir="auto">{copy.nudge}</p>
       <button
         type="button"
         className="nudgeDismiss"
@@ -44,7 +47,7 @@ export default function IosNudgeBanner() {
           setDismissed(true);
         }}
       >
-        DISMISS
+        {copy.dismiss}
       </button>
     </div>
   );

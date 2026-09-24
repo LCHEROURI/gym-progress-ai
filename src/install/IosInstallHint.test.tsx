@@ -48,6 +48,10 @@ function stubBrowser(e: InstallEnv) {
 
 afterEach(() => vi.unstubAllGlobals());
 
+function hintText(): string {
+  return screen.getByText(/Add to Home Screen/).textContent ?? "";
+}
+
 describe("detectIosBrowser", () => {
   it("detects Safari, Chrome, Firefox, and Edge on iPhone", () => {
     expect(detectIosBrowser(env())).toBe("safari");
@@ -135,5 +139,51 @@ describe("IosInstallHint", () => {
     stubBrowser(env({ standalone: true }));
     render(<IosInstallHint />);
     expect(screen.queryByText(/Add to Home Screen/)).toBeNull();
+  });
+});
+
+// Locked copy assertions — the strings below are the labels a user sees in the
+// real iOS UI: the share-sheet action "Add to Home Screen", the iOS 26 install
+// choice "Web App", and Safari's "Edit Actions" fallback for the missing-option
+// quirk. Source: Apple iPhone user guide ("Turn a website into an app in Safari
+// on iPhone" and "Bookmark a website in Safari on iPhone"), verified 2026-09-24
+// on iOS 26. Re-verify at every iOS major version (next: iOS 27) and change
+// this lock only when the OS UI changes (docs/PRINCIPLES.md, 2026-09-24).
+describe("iOS share-sheet wording (locked)", () => {
+  const CASES: [string, string][] = [
+    ["Safari", IPHONE_SAFARI],
+    ["Chrome", IPHONE_CHROME],
+    ["Firefox", IPHONE_FIREFOX],
+    ["Edge", IPHONE_EDGE],
+  ];
+
+  for (const [name, ua] of CASES) {
+    it(`${name} hint names the iOS share-sheet action exactly`, () => {
+      stubBrowser(env({ userAgent: ua }));
+      render(<IosInstallHint />);
+      const text = hintText();
+      expect(text).toContain("“Add to Home Screen”");
+      expect(text).toContain("“Web App”");
+      expect(text).toContain("then Add");
+    });
+  }
+
+  it("keeps the Safari Edit Actions fallback for the missing-option quirk", () => {
+    stubBrowser(env());
+    render(<IosInstallHint />);
+    expect(hintText()).toContain("Edit Actions");
+  });
+
+  it("renders the device language's verified label (French)", () => {
+    stubBrowser(env());
+    vi.stubGlobal("navigator", {
+      userAgent: IPHONE_SAFARI,
+      platform: "iPhone",
+      maxTouchPoints: 5,
+      languages: ["fr-FR"],
+    });
+    render(<IosInstallHint />);
+    const hint = screen.getByText(/Sur l’écran d’accueil/);
+    expect(hint).toHaveTextContent("« Sur l’écran d’accueil »");
   });
 });

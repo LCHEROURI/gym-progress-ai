@@ -7,6 +7,11 @@ export interface InstallEnv {
   standalone: boolean;
 }
 
+/** The device's preferred languages (`navigator.languages`, fallback single). */
+export function currentLanguages(): readonly (string | undefined)[] {
+  return navigator.languages ?? [navigator.language];
+}
+
 /** The live browser as an InstallEnv (display-mode standalone included). */
 export function currentInstallEnv(): InstallEnv {
   return {

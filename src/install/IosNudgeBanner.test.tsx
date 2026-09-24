@@ -48,6 +48,20 @@ describe("IosNudgeBanner", () => {
     expect(screen.queryByRole("note")).toBeNull();
   });
 
+  it("translates the nudge to the device language (French)", () => {
+    stubBrowser();
+    vi.stubGlobal("navigator", {
+      userAgent: IPHONE_SAFARI,
+      platform: "iPhone",
+      maxTouchPoints: 5,
+      standalone: false,
+      languages: ["fr-FR"],
+    });
+    render(<IosNudgeBanner />);
+    expect(screen.getByRole("note")).toHaveTextContent("« Sur l’écran d’accueil »");
+    expect(screen.getByRole("button", { name: "IGNORER" })).toBeEnabled();
+  });
+
   it("dismisses for good across renders", () => {
     stubBrowser();
     const { unmount } = render(<IosNudgeBanner />);

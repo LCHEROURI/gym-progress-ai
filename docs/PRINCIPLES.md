@@ -26,7 +26,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Validate platform-specific user instructions against the current OS vendor docs at write time and re-check on every major OS version; every event-based platform signal needs a non-event fallback for platforms that never emit it.
 
-**Next Experiment:** Done 2026-09-24 — copy-assertion test locks the share-sheet label, the "Web App" install choice, and the Edit Actions fallback (`src/install/IosInstallHint.test.tsx`, "iOS share-sheet wording (locked)"). Remaining: re-verify against Apple's iPhone user guide at each iOS major release (next: iOS 27) and update the lock only when the OS UI changes.
+**Next Experiment:** Done 2026-09-24 — copy-assertion test locks the share-sheet label, the "Web App" install choice, and the Edit Actions fallback (`src/install/IosInstallHint.test.tsx`, "iOS share-sheet wording (locked)"). Remaining: re-verify against Apple's iPhone user guide at each iOS major release (next: iOS 27) and update the lock only when the OS UI changes. Localization addendum (2026-09-24): iOS localizes these labels per language (fr « Sur l'écran d'accueil », de „Zum Home-Bildschirm"), so translating instructions means quoting the OS's localized labels, not literally translating English ones — verify each against the localized vendor guide, and paraphrase (never quote) labels that can't be verified (`src/install/i18n.ts`).
 
 **Confidence:** Low (observed once; strongly supported by Apple docs)
 
