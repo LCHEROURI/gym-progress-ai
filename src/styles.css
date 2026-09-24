@@ -7,6 +7,12 @@
   --red: #b3261e;
 }
 
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
 body {
   background: #ffffff;
   color: #111111;
@@ -77,8 +83,8 @@ button:focus-visible,
   border-radius: 12px;
   padding: 16px;
   display: flex;
-  justify-content: space-between;
-  align-items: center;
+  flex-direction: column;
+  align-items: stretch;
   gap: 12px;
 }
 
@@ -131,12 +137,21 @@ button:focus-visible,
 }
 
 .bottomNav button {
-  flex: 1;
+  flex: 1 1 0;
+  min-width: 0;
   min-height: 64px;
+  padding: 0 2px;
   font-size: 15px;
   font-weight: 700;
   background: none;
   border: none;
+  overflow-wrap: anywhere;
+}
+
+@media (max-width: 430px) {
+  .bottomNav button {
+    font-size: 12px;
+  }
 }
 
 .bottomNav button[aria-current="page"] {
@@ -251,4 +266,102 @@ button:focus-visible,
 .appToast p {
   margin: 0 0 8px;
   font-size: 20px;
+}
+
+/* iPhone-safe layout: form controls never below 16px (iOS Safari zooms in on
+   smaller inputs), every touch target at least 48px, rows wrap instead of
+   overflowing the viewport. */
+input,
+button,
+select,
+textarea {
+  font-family: inherit;
+}
+
+input {
+  font-size: 16px;
+}
+
+.cardTop {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+
+.lastTime {
+  margin: 0;
+  font-weight: 600;
+}
+
+.weightRow {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.weightRow button {
+  flex: 0 0 56px;
+  min-height: 48px;
+  font-size: 22px;
+  font-weight: 700;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.weightRow input {
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 48px;
+  font-size: 20px;
+  text-align: center;
+  border: 2px solid #111111;
+  border-radius: 12px;
+}
+
+.setRow {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 56px;
+}
+
+.setRow input {
+  flex: 0 0 auto;
+  min-height: 48px;
+  font-size: 18px;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 4px 8px;
+}
+
+.setRow input[type="number"] {
+  width: 5em;
+}
+
+.setRow input[type="time"] {
+  width: 8.5em;
+}
+
+.feelRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.feelRow button {
+  flex: 1 1 64px;
+  min-height: 48px;
+  font-size: 16px;
+  font-weight: 700;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  background: #ffffff;
+}
+
+.feelRow button[aria-pressed="true"] {
+  background: #111111;
+  color: #ffffff;
 }
