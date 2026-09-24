@@ -1,0 +1,93 @@
+:root {
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  --green: #14713d;
+  --blue: #0b57a4;
+  --orange: #a85a00;
+  --red: #b3261e;
+}
+
+body {
+  background: #ffffff;
+  color: #111111;
+  font-size: 20px;
+  line-height: 1.45;
+  margin: 0;
+}
+
+main {
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 16px;
+}
+
+h1 {
+  font-size: 28px;
+}
+
+h2.workoutName {
+  font-size: 26px;
+  margin: 4px 0;
+}
+
+.eyebrow {
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  margin: 0;
+}
+
+.dateLine {
+  margin: 0 0 8px;
+}
+
+.progressLine {
+  font-size: 22px;
+}
+
+.primaryButton {
+  width: 100%;
+  min-height: 72px;
+  font-size: 24px;
+  font-weight: 700;
+  color: #ffffff;
+  background: var(--green);
+  border: none;
+  border-radius: 12px;
+}
+
+button:disabled {
+  opacity: 0.6;
+}
+
+button:focus-visible,
+.cardList li:focus-visible {
+  outline: 4px solid var(--blue);
+  outline-offset: 2px;
+}
+
+.cardList {
+  list-style: none;
+  padding: 0;
+  display: grid;
+  gap: 12px;
+}
+
+.exerciseCard {
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+}
+
+.exerciseName {
+  font-size: 22px;
+  font-weight: 600;
+}
+
+.exerciseTarget {
+  font-size: 22px;
+  white-space: nowrap;
+}
