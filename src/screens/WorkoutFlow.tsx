@@ -15,6 +15,7 @@ import StreakToast from "../workout/StreakToast";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
 import { useInstallAnalytics } from "../install/useInstallAnalytics";
 import BottomNav, { type NavView } from "../nav/BottomNav";
+import { viewFromSearch } from "../nav/screenParam";
 import CoachScreen from "./CoachScreen";
 import CompleteScreen from "./CompleteScreen";
 import HistoryScreen from "./HistoryScreen";
@@ -26,7 +27,15 @@ import WorkoutScreen from "./WorkoutScreen";
 
 export default function WorkoutFlow({ uid }: { uid: string }) {
   const [today] = useState(() => new Date());
-  const [view, setView] = useState<NavView>("today");
+  // Dev-only ?screen= deep link so screens can be opened and tested by URL.
+  const [view, setView] = useState<NavView>(
+    () =>
+      (import.meta.env.DEV
+        ? viewFromSearch(
+            typeof window === "undefined" ? "" : window.location.search,
+          )
+        : null) ?? "today",
+  );
   const [profile, setProfile] = useState<Profile | null>(null);
   const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const template = templateForWeekday(today.getDay());
@@ -69,8 +78,17 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     });
   };
 
+  const navigate = (v: NavView) => {
+    if (import.meta.env.DEV && typeof window !== "undefined") {
+      const url = new URL(window.location.href);
+      url.searchParams.set("screen", v);
+      window.history.replaceState(null, "", url.toString());
+    }
+    setView(v);
+  };
+
   const cls = profile && !profile.largeTextEnabled ? "smallText" : "";
-  const nav = <BottomNav view={view} onNavigate={setView} />;
+  const nav = <BottomNav view={view} onNavigate={navigate} />;
 
   if (view === "settings") {
     return (
@@ -138,7 +156,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
         syncState={syncState}
         profile={profile}
         view={view}
-        onNavigate={setView}
+        onNavigate={navigate}
       />
     </div>
   );
