@@ -2,9 +2,15 @@ import { useEffect, useState } from "react";
 
 const OPTIONS = [60, 75, 90] as const;
 
-export default function RestTimer({ onSkip }: { onSkip?: () => void }) {
-  const [seconds, setSeconds] = useState<number>(75);
-  const [remaining, setRemaining] = useState(75);
+export default function RestTimer({
+  onSkip,
+  defaultSeconds = 75,
+}: {
+  onSkip?: () => void;
+  defaultSeconds?: number;
+}) {
+  const [seconds, setSeconds] = useState<number>(defaultSeconds);
+  const [remaining, setRemaining] = useState(defaultSeconds);
   const [running, setRunning] = useState(false);
 
   useEffect(() => {

@@ -1,12 +1,18 @@
-export type NavView = "today" | "history" | "progress" | "coach" | "reports";
+export type NavView =
+  | "today"
+  | "history"
+  | "progress"
+  | "coach"
+  | "reports"
+  | "settings";
 
-const LABELS: Record<NavView, string> = {
-  today: "TODAY",
-  history: "HISTORY",
-  progress: "PROGRESS",
-  coach: "AI COACH",
-  reports: "REPORTS",
-};
+const TABS: [NavView, string][] = [
+  ["today", "TODAY"],
+  ["history", "HISTORY"],
+  ["progress", "PROGRESS"],
+  ["coach", "AI COACH"],
+  ["reports", "REPORTS"],
+];
 
 export default function BottomNav({
   view,
@@ -17,16 +23,25 @@ export default function BottomNav({
 }) {
   return (
     <nav className="bottomNav" aria-label="Main">
-      {(Object.keys(LABELS) as NavView[]).map((v) => (
+      {TABS.map(([v, label]) => (
         <button
           key={v}
           type="button"
           aria-current={view === v ? "page" : undefined}
           onClick={() => onNavigate(v)}
         >
-          {LABELS[v]}
+          {label}
         </button>
       ))}
+      <button
+        type="button"
+        className="gearButton"
+        aria-label="Settings"
+        aria-current={view === "settings" ? "page" : undefined}
+        onClick={() => onNavigate("settings")}
+      >
+        ⚙
+      </button>
     </nav>
   );
 }

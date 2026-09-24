@@ -59,6 +59,8 @@ export function useWorkoutSession(input: {
   template: WorkoutTemplate;
   scheduledDate: string;
   syncState?: SyncState;
+  coachEnabled?: boolean;
+  weightUnit?: "lb" | "kg";
 }): WorkoutFlow {
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [exercises, setExercises] = useState<ExerciseSession[]>([]);
@@ -83,11 +85,16 @@ export function useWorkoutSession(input: {
         previousWeights,
       });
       const built = input.template.exercises.map((t) =>
-        buildExercise(t, input.template, previousWeights[t.key] ?? null),
+        buildExercise(
+          t,
+          input.template,
+          previousWeights[t.key] ?? null,
+          input.weightUnit ?? "lb",
+        ),
       );
       const loads = buildLoads(recent);
       const suggestions: Record<string, CoachSuggestion> = {};
-      for (const t of input.template.exercises) {
+      for (const t of input.coachEnabled === false ? [] : input.template.exercises) {
         if (t.kind !== "resistance") continue;
         const recommendation = recommendWeight({
           loads: loads[t.key] ?? [],
@@ -226,11 +233,12 @@ function buildExercise(
   t: WorkoutTemplate["exercises"][number],
   template: WorkoutTemplate,
   previousWeight: number | null,
+  unit: "lb" | "kg",
 ): ExerciseSession {
   return buildExerciseSession({
     template,
     order: t.order,
     previousWeight,
-    weightUnit: t.kind === "resistance" ? "lb" : null,
+    weightUnit: t.kind === "resistance" ? unit : null,
   });
 }

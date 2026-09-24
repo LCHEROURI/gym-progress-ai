@@ -16,6 +16,8 @@ interface Props {
   onPatchSession: (patch: Partial<WorkoutSession>) => void;
   onLogSet: (exerciseKey: string, set: WorkoutSet) => void;
   onFinish: () => void;
+  restSeconds?: number;
+  increments?: Record<string, number>;
   recommendations?: Record<string, { recommendation: Recommendation; reason: string }>;
   onDecide?: (
     exerciseKey: string,
@@ -45,7 +47,9 @@ export default function WorkoutScreen(props: Props) {
         </span>
       </header>
       {props.error && <p role="alert">{props.error}</p>}
-      {resting && <RestTimer onSkip={() => setResting(null)} />}
+      {resting && (
+        <RestTimer defaultSeconds={props.restSeconds} onSkip={() => setResting(null)} />
+      )}
       <ul className="cardList">
         {props.exercises.map((e) => (
           <ExerciseCard
@@ -56,6 +60,7 @@ export default function WorkoutScreen(props: Props) {
             onLogSet={(set) => props.onLogSet(e.exerciseKey, set)}
             onSetLogged={() => setResting(e.exerciseKey)}
             suggestion={props.recommendations?.[e.exerciseKey]}
+            increment={props.increments?.[e.exerciseKey]}
             onDecide={(d) => props.onDecide?.(e.exerciseKey, d)}
           />
         ))}
@@ -73,11 +78,13 @@ function ExerciseCard(props: {
   onPatch: (patch: Partial<ExerciseSession>) => void;
   onLogSet: (set: WorkoutSet) => void;
   onSetLogged: () => void;
+  increment?: number;
   suggestion?: { recommendation: Recommendation; reason: string };
   onDecide?: (decision: { accepted: boolean; finalWeightChosen: number | null }) => void;
 }) {
   const { exercise: e, templateExercise: t } = props;
   const isResistance = t.kind === "resistance";
+  const step = props.increment ?? 5;
 
   return (
     <li className="exerciseCard">
@@ -99,7 +106,7 @@ function ExerciseCard(props: {
             <button
               type="button"
               aria-label="Decrease weight"
-              onClick={() => props.onPatch({ weightUsed: Math.max(0, (e.weightUsed ?? 0) - 5) })}
+              onClick={() => props.onPatch({ weightUsed: Math.max(0, (e.weightUsed ?? 0) - step) })}
             >
               −
             </button>
@@ -114,11 +121,11 @@ function ExerciseCard(props: {
                 })
               }
             />
-            <span aria-hidden="true">LB</span>
+            <span aria-hidden="true">{(e.weightUnit ?? "lb").toUpperCase()}</span>
             <button
               type="button"
               aria-label="Increase weight"
-              onClick={() => props.onPatch({ weightUsed: Math.min(2000, (e.weightUsed ?? 0) + 5) })}
+              onClick={() => props.onPatch({ weightUsed: Math.min(2000, (e.weightUsed ?? 0) + step) })}
             >
               +
             </button>

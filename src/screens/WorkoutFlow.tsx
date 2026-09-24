@@ -1,6 +1,7 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { Firestore } from "firebase/firestore";
 import { initFirebase } from "../data/firebase";
+import { fetchProfile, saveProfile, type Profile } from "../data/settings";
 import { useSyncStatus } from "../data/useSyncStatus";
 import { isoDate } from "../domain/session";
 import { parseEnv } from "../shared/env";
@@ -8,71 +9,112 @@ import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import { buildCompletionSummary } from "../workout/summary";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
 import BottomNav, { type NavView } from "../nav/BottomNav";
+import CoachScreen from "./CoachScreen";
 import CompleteScreen from "./CompleteScreen";
 import HistoryScreen from "./HistoryScreen";
 import ProgressScreen from "./ProgressScreen";
-import CoachScreen from "./CoachScreen";
 import ReportsScreen from "./ReportsScreen";
+import SettingsScreen from "./SettingsScreen";
 import TodayScreen from "./TodayScreen";
 import WorkoutScreen from "./WorkoutScreen";
 
 export default function WorkoutFlow({ uid }: { uid: string }) {
   const [today] = useState(() => new Date());
   const [view, setView] = useState<NavView>("today");
+  const [profile, setProfile] = useState<Profile | null>(null);
   const template = templateForWeekday(today.getDay());
   const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
 
+  useEffect(() => {
+    let cancelled = false;
+    fetchProfile({ db }, uid)
+      .then((p) => {
+        if (!cancelled) setProfile(p);
+      })
+      .catch(() => {
+        void 0;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, uid]);
+
+  const save = (p: Profile) => {
+    setProfile(p);
+    void saveProfile({ db }, uid, p).catch(() => {
+      void 0;
+    });
+  };
+
+  const cls = profile && !profile.largeTextEnabled ? "smallText" : "";
+  const nav = <BottomNav view={view} onNavigate={setView} />;
+
+  if (view === "settings") {
+    return (
+      <div className={cls}>
+        {profile ? (
+          <SettingsScreen profile={profile} onSave={save} />
+        ) : (
+          <p>Loading…</p>
+        )}
+        {nav}
+      </div>
+    );
+  }
   if (view === "history") {
     return (
-      <>
+      <div className={cls}>
         <HistoryScreen db={db} uid={uid} />
-        <BottomNav view={view} onNavigate={setView} />
-      </>
+        {nav}
+      </div>
     );
   }
   if (view === "progress") {
     return (
-      <>
+      <div className={cls}>
         <ProgressScreen db={db} uid={uid} />
-        <BottomNav view={view} onNavigate={setView} />
-      </>
+        {nav}
+      </div>
     );
   }
   if (view === "coach") {
     return (
-      <>
+      <div className={cls}>
         <CoachScreen db={db} uid={uid} app={app} />
-        <BottomNav view={view} onNavigate={setView} />
-      </>
+        {nav}
+      </div>
     );
   }
   if (view === "reports") {
     return (
-      <>
+      <div className={cls}>
         <ReportsScreen db={db} uid={uid} app={app} />
-        <BottomNav view={view} onNavigate={setView} />
-      </>
+        {nav}
+      </div>
     );
   }
   if (!template) {
     return (
-      <>
+      <div className={cls}>
         <TodayScreen today={today} />
-        <BottomNav view={view} onNavigate={setView} />
-      </>
+        {nav}
+      </div>
     );
   }
   return (
-    <ActiveFlow
-      uid={uid}
-      db={db}
-      template={template}
-      date={isoDate(today)}
-      syncState={syncState}
-      view={view}
-      onNavigate={setView}
-    />
+    <div className={cls}>
+      <ActiveFlow
+        uid={uid}
+        db={db}
+        template={template}
+        date={isoDate(today)}
+        syncState={syncState}
+        profile={profile}
+        view={view}
+        onNavigate={setView}
+      />
+    </div>
   );
 }
 
@@ -82,6 +124,7 @@ function ActiveFlow(props: {
   template: WorkoutTemplate;
   date: string;
   syncState: ReturnType<typeof useSyncStatus>;
+  profile: Profile | null;
   view: NavView;
   onNavigate: (v: NavView) => void;
 }) {
@@ -90,6 +133,8 @@ function ActiveFlow(props: {
     uid: props.uid,
     template: props.template,
     scheduledDate: props.date,
+    coachEnabled: props.profile?.aiRecommendationsEnabled,
+    weightUnit: props.profile?.weightUnit,
   });
 
   if (flow.phase === "complete" && flow.session) {
@@ -129,6 +174,8 @@ function ActiveFlow(props: {
       exercises={flow.exercises}
       syncState={props.syncState}
       error={flow.error}
+      restSeconds={props.profile?.defaultRestSeconds}
+      increments={props.profile?.machineIncrements}
       onPatchExercise={(key, patch) => void flow.patchExercise(key, patch)}
       onPatchSession={(patch) => void flow.patchSession(patch)}
       onLogSet={(key, set) => void flow.logSet(key, set)}

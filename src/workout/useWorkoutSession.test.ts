@@ -116,6 +116,22 @@ describe("useWorkoutSession + coach wiring", () => {
     });
   });
 
+  it("skips coach suggestions when the AI coach is off", async () => {
+    const { result } = renderHook(() =>
+      useWorkoutSession({
+        db: {} as never,
+        uid: "u1",
+        template: MONDAY,
+        scheduledDate: "2026-09-28",
+        coachEnabled: false,
+      }),
+    );
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(mocks.saveRecommendation).not.toHaveBeenCalled();
+  });
+
   it("patchExercise still autosaves immediately", async () => {
     const { result } = render();
     await act(async () => {

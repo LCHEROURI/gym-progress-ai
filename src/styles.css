@@ -205,3 +205,18 @@ button:focus-visible,
   background: var(--green);
   color: #ffffff;
 }
+
+.gearButton {
+  flex: 0 0 56px;
+  font-size: 22px;
+}
+
+.smallText body,
+.smallText {
+  font-size: 17px;
+}
+
+.smallText .exerciseName,
+.smallText .exerciseTarget {
+  font-size: 19px;
+}
