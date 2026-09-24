@@ -49,3 +49,26 @@ describe("classifyQuestion (brief's example questions)", () => {
     expect(classify("hello coach")).toMatchObject({ intent: "general", exerciseKey: null });
   });
 });
+
+describe("classifyQuestion (effort-aware next workout)", () => {
+  it("routes the effort chips to nextWorkout", () => {
+    expect(
+      classify("My last workout felt hard. How should I ease off for my next workout?"),
+    ).toMatchObject({ intent: "nextWorkout" });
+    expect(
+      classify(
+        "My last workout felt good. Which exercises are ready for a small increase next workout?",
+      ),
+    ).toMatchObject({ intent: "nextWorkout" });
+    expect(classify("Repeat next workout as-is?")).toMatchObject({
+      intent: "nextWorkout",
+    });
+  });
+
+  it("keeps next-week and weight questions on their own intents", () => {
+    expect(classify("What should I focus on next week?")).toMatchObject({ intent: "focus" });
+    expect(classify("What weight should I use today?")).toMatchObject({
+      intent: "weightToday",
+    });
+  });
+});

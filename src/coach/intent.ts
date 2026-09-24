@@ -1,4 +1,5 @@
 export type CoachIntent =
+  | "nextWorkout"
   | "weightToday"
   | "progress"
   | "mostImproved"
@@ -32,6 +33,15 @@ export function classifyQuestion(input: {
   );
   const exerciseKey = hit?.key ?? null;
 
+  // Effort-aware next-workout suggestions (chips.ts) — checked first so
+  // "ready to progress" does not fall into the generic progress route.
+  if (
+    /next workout|ease off|deload|lighter|harder|same weights|felt (easy|good|hard)/.test(
+      q,
+    )
+  ) {
+    return { intent: "nextWorkout", exerciseKey };
+  }
   if (/stall/.test(q)) return { intent: "stalled", exerciseKey };
   if (
     /(most|biggest).{0,24}(improv|gain|progress)/.test(q) ||

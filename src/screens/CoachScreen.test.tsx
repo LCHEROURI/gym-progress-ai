@@ -55,4 +55,31 @@ describe("CoachScreen", () => {
       expect(mocks.askCoach).toHaveBeenCalledOnce();
     });
   });
+
+  it("suggests workout chips from the last session's effort", async () => {
+    mocks.fetchProgressFacts.mockResolvedValueOnce({
+      sessions: [
+        { id: "s9", scheduledDate: "2026-09-25", status: "completed" as const },
+      ],
+      exercises: [
+        {
+          sessionId: "s9",
+          scheduledDate: "2026-09-25",
+          exerciseKey: "leg-press",
+          exerciseName: "Leg Press",
+          completed: true,
+          weightUsed: 70,
+          difficulty: "hard" as const,
+          durationMinutes: null,
+        },
+      ],
+    } as never);
+    render(<CoachScreen db={{} as never} uid="u1" app={{} as never} />);
+    expect(
+      await screen.findByRole("button", { name: "Plan a lighter next workout" }),
+    ).toBeEnabled();
+    expect(
+      screen.getByRole("button", { name: "What should I keep steady?" }),
+    ).toBeEnabled();
+  });
 });

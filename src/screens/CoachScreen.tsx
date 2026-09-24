@@ -6,16 +6,7 @@ import { TEMPLATES } from "../domain/templates";
 import { askCoach, type CoachMessage } from "../coach/chat";
 import { buildCoachContext } from "../coach/context";
 import { classifyQuestion, type KnownExercise } from "../coach/intent";
-
-const QUICK_QUESTIONS = [
-  "What weight should I use today?",
-  "How am I progressing on leg press?",
-  "Which exercise has improved most?",
-  "Which exercise has stalled?",
-  "How many workouts did I complete this month?",
-  "How much cardio did I do?",
-  "What should I focus on next week?",
-];
+import { lastEffortFeedback, suggestQuickChips } from "../coach/chips";
 
 const knownExercises: KnownExercise[] = [
   ...new Map(
@@ -73,6 +64,8 @@ export default function CoachScreen({
       .finally(() => setBusy(false));
   };
 
+  const chips = suggestQuickChips(facts ? lastEffortFeedback(facts) : null);
+
   return (
     <section aria-label="AI coach">
       <h2 className="workoutName">AI COACH</h2>
@@ -91,9 +84,15 @@ export default function CoachScreen({
       </div>
 
       <div className="quickRow">
-        {QUICK_QUESTIONS.map((q) => (
-          <button key={q} type="button" className="quickChip" onClick={() => send(q)} disabled={busy}>
-            {q}
+        {chips.map((chip) => (
+          <button
+            key={chip.label}
+            type="button"
+            className="quickChip"
+            onClick={() => send(chip.message)}
+            disabled={busy}
+          >
+            {chip.label}
           </button>
         ))}
       </div>

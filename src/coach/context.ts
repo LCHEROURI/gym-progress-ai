@@ -1,6 +1,7 @@
 import type { ExerciseFact, SessionFact } from "../progress/stats";
 import { buildExerciseProgress, buildProgressStats } from "../progress/stats";
 import type { ClassifiedQuestion, CoachIntent } from "./intent";
+import { lastEffortFeedback } from "./chips";
 
 export interface CoachContext {
   intent: CoachIntent;
@@ -116,6 +117,47 @@ export function buildCoachContext(input: {
         summaryLines: stalled.length
           ? [`Stalled: ${stalled.map((s) => s.exerciseName).join(", ")} (flat across recent sessions).`]
           : ["Nothing has stalled — every tracked machine is still moving."],
+      };
+    }
+    case "nextWorkout": {
+      const lastEffort = lastEffortFeedback(input);
+      const latestByKey = new Map<string, ExerciseFact>();
+      for (const f of input.exercises.filter((e) => e.completed)) {
+        const cur = latestByKey.get(f.exerciseKey);
+        if (!cur || f.scheduledDate > cur.scheduledDate) {
+          latestByKey.set(f.exerciseKey, f);
+        }
+      }
+      const plan = progress.map((p) => {
+        const difficulty = latestByKey.get(p.exerciseKey)?.difficulty ?? null;
+        const advice =
+          difficulty === "easy"
+            ? "increase-ok"
+            : difficulty === "good"
+              ? "keep-or-nudge"
+              : difficulty === "hard"
+                ? "keep"
+                : "rate-it";
+        return {
+          exerciseKey: p.exerciseKey,
+          exerciseName: p.exerciseName,
+          lastWeight: p.currentWeight,
+          lastDifficulty: difficulty,
+          advice,
+        };
+      });
+      const line = (m: (typeof plan)[number]) =>
+        m.advice === "increase-ok"
+          ? `${m.exerciseName}: ${m.lastWeight} lb felt easy — consider a small increase.`
+          : m.advice === "keep-or-nudge"
+            ? `${m.exerciseName}: ${m.lastWeight} lb felt good — keep it or nudge up if all sets felt comfortable.`
+            : m.advice === "keep"
+              ? `${m.exerciseName}: ${m.lastWeight} lb felt hard — keep it steady next workout.`
+              : `${m.exerciseName}: ${m.lastWeight} lb last time — keep it and rate how it feels.`;
+      return {
+        ...base,
+        facts: { lastEffort, plan },
+        summaryLines: plan.map(line),
       };
     }
     case "weightToday": {

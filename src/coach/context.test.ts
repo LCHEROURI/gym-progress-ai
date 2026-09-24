@@ -79,4 +79,12 @@ describe("buildCoachContext", () => {
     expect(c.summaryLines).toHaveLength(2);
     expect(c.summaryLines[0]).toContain("lb");
   });
+
+  it("plans the next workout from the last session's ratings", () => {
+    const c = ctx("nextWorkout");
+    expect(c.facts.lastEffort).toBe("good");
+    expect((c.facts.plan as unknown[]).length).toBe(2);
+    expect(c.summaryLines.join(" ")).toContain("Leg Press: 75 lb felt good");
+    expect(c.summaryLines.join(" ")).toContain("Chest Press: 50 lb felt good");
+  });
 });
