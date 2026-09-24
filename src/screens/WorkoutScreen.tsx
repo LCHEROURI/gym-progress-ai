@@ -13,6 +13,7 @@ interface Props {
   onPatchExercise: (exerciseKey: string, patch: Partial<ExerciseSession>) => void;
   onPatchSession: (patch: Partial<WorkoutSession>) => void;
   onLogSet: (exerciseKey: string, set: WorkoutSet) => void;
+  onFinish: () => void;
 }
 
 const SYNC_LABEL: Record<SyncState, string> = {
@@ -50,6 +51,9 @@ export default function WorkoutScreen(props: Props) {
           />
         ))}
       </ul>
+      <button type="button" className="primaryButton" onClick={props.onFinish}>
+        FINISH WORKOUT
+      </button>
     </section>
   );
 }

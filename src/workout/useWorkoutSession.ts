@@ -1,24 +1,30 @@
 import { useCallback, useState } from "react";
 import type { Firestore } from "firebase/firestore";
-import type { ExerciseSession, WorkoutSession } from "../domain/session";
+import type { ExerciseSession, WorkoutSession, WorkoutSet } from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
 import {
   fetchPreviousWeights,
+  logSet as persistSet,
   saveExercise,
   saveSession,
   startSession,
   type RepoCtx,
 } from "../data/session-repository";
+import type { LoggedSet } from "./summary";
 import type { SyncState } from "../data/useSyncStatus";
 
 export interface WorkoutFlow {
-  phase: "today" | "active";
+  phase: "today" | "active" | "complete";
   session: WorkoutSession | null;
   exercises: ExerciseSession[];
+  sets: LoggedSet[];
   error: string | null;
   start: () => Promise<void>;
   patchExercise: (exerciseKey: string, patch: Partial<ExerciseSession>) => Promise<void>;
   patchSession: (patch: Partial<WorkoutSession>) => Promise<void>;
+  logSet: (exerciseKey: string, set: WorkoutSet) => Promise<void>;
+  complete: () => Promise<void>;
+  reset: () => void;
 }
 
 let counter = 0;
@@ -37,6 +43,7 @@ export function useWorkoutSession(input: {
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [exercises, setExercises] = useState<ExerciseSession[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [sets, setSets] = useState<LoggedSet[]>([]);
   const ctx: RepoCtx = { db: input.db };
 
   const start = useCallback(async () => {
@@ -101,14 +108,48 @@ export function useWorkoutSession(input: {
     [session, input.db, input.uid],
   );
 
+  const logSet = useCallback(
+    async (exerciseKey: string, set: WorkoutSet) => {
+      if (!session) return;
+      try {
+        await persistSet(ctx, {
+          uid: input.uid,
+          sessionId: session.id,
+          exerciseKey,
+          set,
+        });
+        setSets((list) => [...list, { ...set, exerciseKey }]);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not save your set.");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [session, input.db, input.uid],
+  );
+
+  const complete = useCallback(async () => {
+    await patchSession({ status: "completed", completedAt: new Date() });
+  }, [patchSession]);
+
+  const reset = useCallback(() => {
+    setSession(null);
+    setExercises([]);
+    setSets([]);
+    setError(null);
+  }, []);
+
   return {
-    phase: session ? "active" : "today",
+    phase: session ? (session.status === "completed" ? "complete" : "active") : "today",
     session,
     exercises,
+    sets,
     error,
     start,
     patchExercise,
     patchSession,
+    logSet,
+    complete,
+    reset,
   };
 }
 

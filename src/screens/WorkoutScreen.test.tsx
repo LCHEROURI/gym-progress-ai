@@ -36,6 +36,7 @@ function renderScreen(overrides: Partial<Parameters<typeof WorkoutScreen>[0]> = 
     onPatchExercise: vi.fn(),
     onPatchSession: vi.fn(),
     onLogSet: vi.fn(),
+    onFinish: vi.fn(),
     ...overrides,
   };
   render(<WorkoutScreen {...props} />);
