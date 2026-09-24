@@ -18,12 +18,9 @@ function currentEnv(): InstallEnv {
 export default function IosInstallHint() {
   if (!shouldShowIosInstallHint(currentEnv())) return null;
   return (
-    <>
-      <h3 className="sectionTitle">INSTALL APP</h3>
-      <p className="tip">
-        In Safari, tap the Share button, then &ldquo;Add to Home Screen&rdquo;,
-        then Add. The app opens full screen from your Home Screen.
-      </p>
-    </>
+    <p className="tip">
+      In Safari, tap the Share button, then &ldquo;Add to Home Screen&rdquo;,
+      then Add. The app opens full screen from your Home Screen.
+    </p>
   );
 }

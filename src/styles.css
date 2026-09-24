@@ -232,3 +232,23 @@ button:focus-visible,
   border: 2px solid #111111;
   border-radius: 12px;
 }
+
+.installToast {
+  position: fixed;
+  left: 16px;
+  right: 16px;
+  bottom: 88px;
+  margin: 0 auto;
+  max-width: 528px;
+  background: var(--green);
+  color: #ffffff;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 16px;
+  z-index: 10;
+}
+
+.installToast p {
+  margin: 0 0 8px;
+  font-size: 20px;
+}

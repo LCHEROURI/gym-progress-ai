@@ -1,6 +1,7 @@
 import { useAuthSession } from "./auth/useAuthSession";
 import LoginPage from "./screens/LoginPage";
 import WorkoutFlow from "./screens/WorkoutFlow";
+import InstallToast from "./install/InstallToast";
 
 export default function App() {
   const { user, state } = useAuthSession();
@@ -10,6 +11,7 @@ export default function App() {
       {state === "loading" && <p>Loading…</p>}
       {state === "ready" && !user && <LoginPage />}
       {state === "ready" && user && <WorkoutFlow uid={user.uid} />}
+      <InstallToast />
     </main>
   );
 }

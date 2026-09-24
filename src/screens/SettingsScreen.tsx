@@ -2,7 +2,7 @@ import {
   RESISTANCE_MACHINES,
   type Profile,
 } from "../data/settings";
-import IosInstallHint from "../install/IosInstallHint";
+import InstallSection from "../install/InstallSection";
 
 interface Props {
   profile: Profile;
@@ -107,7 +107,7 @@ export default function SettingsScreen({ profile, onSave }: Props) {
         </label>
       ))}
 
-      <IosInstallHint />
+      <InstallSection />
     </section>
   );
 }
