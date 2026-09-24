@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Layout gates must assert tap-target size, not only overflow
+
+**Experience:** The full 9-screen iPhone pass (390×844) found the workout screen's AI decision buttons (USE / KEEP / CHOOSE ANOTHER) at **22px tall** — half a finger, un-tappable in practice — while `npm run test:layout` was 20/20 green. The Playwright smoke asserts horizontal overflow (`scrollWidth > clientWidth`) and nothing else, so a screen full of sub-44px controls passes. The same pass found dual data states (error + "Loading…" together) and a ~1.5:1 disabled-button contrast — none of which any gate measures. Filed in `docs/VISUAL-FINDINGS.md`.
+
+**Reflection:** Overflow is one axis of layout quality. The recurring defect class here is *interaction ergonomics* — target size, contrast, state clarity — which only a measured audit (bounding boxes + computed styles) or an explicit smoke assertion catches. A green gate says nothing about axes it does not measure.
+
+**Distilled Principle:** A layout gate must enumerate the axes it checks and name the ones it does not; interaction-ergonomic axes (tap-target size, contrast, single data state) need their own assertions because overflow-only smokes pass broken UI.
+
+**Next Experiment:** Extend `tests/overflow.spec.ts` (or a sibling `targets.spec.ts`) with a ≥ 44px width/height assertion for every `button`/`a` inside `main`, run at 320/390 — expect red on V1 (22px coach buttons), then fix and burn the classname baseline entries for `.coachButtons`.
+
+**Confidence:** Medium (one clean counterexample: green smoke + clearly broken tap targets on the same screen)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** Yes — tap-target assertion in the Playwright smoke.
+
 ## 2026-09-24 · Emulator suites must clear state to be re-runnable
 
 **Experience:** Extending the installEvents funnel (`nudge_shown`/`nudge_dismissed`) shipped its first rules tests and the emulator suite went 3–4 red on cases that were green earlier — PERMISSION_DENIED on plain `create` calls. Cause: the Firestore emulator daemon persists docs across runs, the cases use fixed doc ids (`s6`, `pr1`, `w1`), so a second `.set()` is an *update* — and the append-only blocks deny updates. The failure count even grew between runs (the new `ev1` write flipped its own create to an update next run). Fixed with `env.clearFirestore()` in `beforeAll`; suite is now 17/17 on repeat runs.
