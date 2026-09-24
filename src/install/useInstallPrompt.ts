@@ -6,7 +6,7 @@ export interface BeforeInstallPromptEvent extends Event {
   userChoice: Promise<{ outcome: "accepted" | "dismissed" }>;
 }
 
-function isStandalone(): boolean {
+export function isStandalone(): boolean {
   return (
     typeof window.matchMedia === "function" &&
     window.matchMedia("(display-mode: standalone)").matches
