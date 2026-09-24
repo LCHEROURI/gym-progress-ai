@@ -84,4 +84,14 @@ export async function fetchHistoryDetail(
   return { session, exercises, sets };
 }
 
+/** The most recent session details (newest first) — coach load history. */
+export async function fetchRecentDetails(
+  ctx: RepoCtx,
+  uid: string,
+  max = 3,
+): Promise<HistoryDetail[]> {
+  const rows = await fetchHistory(ctx, uid, max);
+  return Promise.all(rows.map((r) => fetchHistoryDetail(ctx, uid, r.id)));
+}
+
 export type { Firestore, WorkoutSet };

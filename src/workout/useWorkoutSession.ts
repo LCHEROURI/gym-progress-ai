@@ -10,7 +10,22 @@ import {
   startSession,
   type RepoCtx,
 } from "../data/session-repository";
+import { fetchRecentDetails } from "../data/history";
+import { buildLoads } from "../coach/loads";
+import { recommendWeight, type Recommendation } from "../coach/progression";
+import {
+  buildRecommendationRecord,
+  newRecommendationId,
+  recordDecision,
+  saveRecommendation,
+} from "../coach/recommendations";
 import type { LoggedSet } from "./summary";
+
+export interface CoachSuggestion {
+  id: string;
+  recommendation: Recommendation;
+  reason: string;
+}
 import type { SyncState } from "../data/useSyncStatus";
 
 export interface WorkoutFlow {
@@ -25,6 +40,11 @@ export interface WorkoutFlow {
   logSet: (exerciseKey: string, set: WorkoutSet) => Promise<void>;
   complete: () => Promise<void>;
   reset: () => void;
+  recommendations: Record<string, CoachSuggestion>;
+  decide: (
+    exerciseKey: string,
+    decision: { accepted: boolean; finalWeightChosen: number | null },
+  ) => Promise<void>;
 }
 
 let counter = 0;
@@ -44,13 +64,17 @@ export function useWorkoutSession(input: {
   const [exercises, setExercises] = useState<ExerciseSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sets, setSets] = useState<LoggedSet[]>([]);
+  const [recommendations, setRecommendations] = useState<Record<string, CoachSuggestion>>({});
   const ctx: RepoCtx = { db: input.db };
 
   const start = useCallback(async () => {
     try {
       setError(null);
       const keys = input.template.exercises.map((e) => e.key);
-      const previousWeights = await fetchPreviousWeights(ctx, input.uid, keys);
+      const [previousWeights, recent] = await Promise.all([
+        fetchPreviousWeights(ctx, input.uid, keys),
+        fetchRecentDetails(ctx, input.uid, 3).catch(() => []),
+      ]);
       const created = await startSession(ctx, {
         sessionId: newSessionId(),
         uid: input.uid,
@@ -58,12 +82,35 @@ export function useWorkoutSession(input: {
         scheduledDate: input.scheduledDate,
         previousWeights,
       });
-      const built = input.template.exercises.map((t, i) => {
-        const orders = input.template.exercises.map((e) => e.order);
-        void orders;
-        void i;
-        return buildExercise(t, input.template, previousWeights[t.key] ?? null);
-      });
+      const built = input.template.exercises.map((t) =>
+        buildExercise(t, input.template, previousWeights[t.key] ?? null),
+      );
+      const loads = buildLoads(recent);
+      const suggestions: Record<string, CoachSuggestion> = {};
+      for (const t of input.template.exercises) {
+        if (t.kind !== "resistance") continue;
+        const recommendation = recommendWeight({
+          loads: loads[t.key] ?? [],
+          targetSets: t.targetSets ?? 1,
+          targetRepsMin: t.targetRepsMin ?? 10,
+          increment: 5,
+        });
+        const id = newRecommendationId();
+        await saveRecommendation(
+          ctx,
+          input.uid,
+          id,
+          buildRecommendationRecord({
+            recommendation,
+            exerciseKey: t.key,
+            date: input.scheduledDate,
+            model: "deterministic",
+            promptVersion: "none",
+          }),
+        );
+        suggestions[t.key] = { id, recommendation, reason: recommendation.reason };
+      }
+      setRecommendations(suggestions);
       setSession(created);
       setExercises(built);
     } catch (e) {
@@ -131,10 +178,28 @@ export function useWorkoutSession(input: {
     await patchSession({ status: "completed", completedAt: new Date() });
   }, [patchSession]);
 
+  const decide = useCallback(
+    async (
+      exerciseKey: string,
+      decision: { accepted: boolean; finalWeightChosen: number | null },
+    ) => {
+      const entry = recommendations[exerciseKey];
+      if (!entry) return;
+      try {
+        await recordDecision(ctx, input.uid, entry.id, decision);
+      } catch (e) {
+        setError(e instanceof Error ? e.message : "Could not save your decision.");
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [recommendations, input.db, input.uid],
+  );
+
   const reset = useCallback(() => {
     setSession(null);
     setExercises([]);
     setSets([]);
+    setRecommendations({});
     setError(null);
   }, []);
 
@@ -150,6 +215,8 @@ export function useWorkoutSession(input: {
     logSet,
     complete,
     reset,
+    recommendations,
+    decide,
   };
 }
 

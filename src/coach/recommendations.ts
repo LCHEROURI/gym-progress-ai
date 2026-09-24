@@ -10,8 +10,11 @@ import type { Recommendation } from "./progression";
 
 const path = (uid: string, id: string) => `users/${uid}/aiRecommendations/${id}`;
 
+let idSequence = 0;
+
 export function newRecommendationId(): string {
-  return `r${Date.now().toString(36)}`;
+  idSequence += 1;
+  return `r${Date.now().toString(36)}_${idSequence}`;
 }
 
 /** Every suggestion is recorded as an audit row before it is shown (AI-SAFETY). */

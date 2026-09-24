@@ -115,6 +115,8 @@ function ActiveFlow(props: {
       onPatchSession={(patch) => void flow.patchSession(patch)}
       onLogSet={(key, set) => void flow.logSet(key, set)}
       onFinish={() => void flow.complete()}
+      recommendations={flow.recommendations}
+      onDecide={(key, decision) => void flow.decide(key, decision)}
     />
   );
 }
