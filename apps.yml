@@ -1,0 +1,47 @@
+# Central application registry.
+# Every active application has one canonical repository and one Firebase project.
+# Keep this file synchronized when an app is created, renamed, archived, or migrated.
+
+identity:
+  github_owner: LCHEROURI
+  workload_identity_provider: projects/952213217375/locations/global/workloadIdentityPools/github-actions/providers/github
+
+apps:
+  - repo: LCHEROURI/kun-meals
+    status: active
+    platform: firebase-hosting
+    firebase_project: meal-planner-lcherouri
+    firebase_target: app
+    production_url: https://meal-planner-lcherouri.web.app
+    preview_url_pattern: https://meal-planner-lcherouri--pr-{number}-*.web.app
+
+  - repo: LCHEROURI/tip-compass
+    status: active
+    platform: firebase-hosting
+    firebase_project: tip-compass
+    firebase_target: null
+    production_url: https://tip-compass.web.app
+    preview_url_pattern: https://tip-compass--pr-{number}-*.web.app
+
+  - repo: LCHEROURI/prompt-vault-pro
+    status: active
+    platform: firebase-hosting
+    firebase_project: prompt-vault-pro-lcherouri
+    firebase_target: null
+    production_url: https://prompt-vault-pro-lcherouri.web.app
+    preview_url_pattern: https://prompt-vault-pro-lcherouri--pr-{number}-*.web.app
+
+  - repo: LCHEROURI/A-Multi-tool-social-media-post-and-more-by-ai-studio-google
+    status: active
+    platform: firebase-hosting
+    firebase_project: restaurant-social-lcherouri
+    firebase_target: null
+    production_url: https://restaurant-social-lcherouri.web.app
+    preview_url_pattern: https://restaurant-social-lcherouri--pr-{number}-*.web.app
+  - repo: LCHEROURI/test-freebuff
+    status: active
+    platform: firebase-hosting
+    firebase_project: test-freebuff-14e73e
+    firebase_target: null
+    production_url: https://test-freebuff-14e73e.web.app
+    preview_url_pattern: https://test-freebuff-14e73e--pr-{number}-*.web.app

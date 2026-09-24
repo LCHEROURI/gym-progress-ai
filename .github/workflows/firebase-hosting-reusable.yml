@@ -1,0 +1,141 @@
+name: Reusable Firebase Hosting
+
+on:
+  workflow_call:
+    inputs:
+      firebase-project:
+        description: Firebase project ID for this repository
+        required: true
+        type: string
+      firebase-service-account:
+        description: Hosting deployer service account email
+        required: true
+        type: string
+      firebase-target:
+        description: Optional Firebase Hosting deploy target
+        required: false
+        default: ''
+        type: string
+      install-command:
+        description: Dependency installation command
+        required: false
+        default: npm ci
+        type: string
+      build-command:
+        description: Production build command, or auto for a starter page when no build script exists
+        required: false
+        default: auto
+        type: string
+      node-version:
+        description: Node.js version
+        required: false
+        default: '20'
+        type: string
+      setup-deno:
+        description: Install Deno before building
+        required: false
+        default: false
+        type: boolean
+      workload-identity-provider:
+        description: Google Workload Identity Federation provider resource
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  checks: write
+  id-token: write
+  pull-requests: write
+
+concurrency:
+  group: firebase-hosting-${{ github.repository }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - name: Install Deno
+        if: inputs.setup-deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+      - name: Build application
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: |
+          if [ "$BUILD_COMMAND" != "auto" ]; then
+            sh -c "$BUILD_COMMAND"
+          elif node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)" 2>/dev/null; then
+            npm run build
+          else
+            mkdir -p dist
+            printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New Freebuff App</title></head><body><main><h1>New Freebuff App</h1><p>This Firebase site is ready for your application.</p></main></body></html>' > dist/index.html
+          fi
+      - name: Authenticate to Google with OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.firebase-service-account }}
+      - name: Deploy Firebase preview channel
+        env:
+          FIREBASE_PROJECT: ${{ inputs.firebase-project }}
+          FIREBASE_TARGET: ${{ inputs.firebase-target }}
+        run: |
+          if [ -n "$FIREBASE_TARGET" ]; then
+            npx -y firebase-tools@latest hosting:channel:deploy "pr-${{ github.event.pull_request.number }}" --only "$FIREBASE_TARGET" --expires 7d --project "$FIREBASE_PROJECT" --json
+          else
+            npx -y firebase-tools@latest hosting:channel:deploy "pr-${{ github.event.pull_request.number }}" --expires 7d --project "$FIREBASE_PROJECT" --json
+          fi
+
+  production:
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ inputs.node-version }}
+          cache: npm
+      - name: Install Deno
+        if: inputs.setup-deno
+        uses: denoland/setup-deno@v1
+        with:
+          deno-version: v1.x
+      - name: Install dependencies
+        run: ${{ inputs.install-command }}
+      - name: Build application
+        env:
+          BUILD_COMMAND: ${{ inputs.build-command }}
+        run: |
+          if [ "$BUILD_COMMAND" != "auto" ]; then
+            sh -c "$BUILD_COMMAND"
+          elif node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)" 2>/dev/null; then
+            npm run build
+          else
+            mkdir -p dist
+            printf '%s\n' '<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>New Freebuff App</title></head><body><main><h1>New Freebuff App</h1><p>This Firebase site is ready for your application.</p></main></body></html>' > dist/index.html
+          fi
+      - name: Authenticate to Google with OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ inputs.workload-identity-provider }}
+          service_account: ${{ inputs.firebase-service-account }}
+      - name: Deploy Firebase live site
+        env:
+          FIREBASE_PROJECT: ${{ inputs.firebase-project }}
+          FIREBASE_TARGET: ${{ inputs.firebase-target }}
+        run: |
+          if [ -n "$FIREBASE_TARGET" ]; then
+            npx -y firebase-tools@latest deploy --only "hosting:$FIREBASE_TARGET" --project "$FIREBASE_PROJECT" --json
+          else
+            npx -y firebase-tools@latest deploy --only hosting --project "$FIREBASE_PROJECT" --json
+          fi
