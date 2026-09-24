@@ -1,11 +1,4 @@
 [
-  "src/coach/RecommendationCard.tsx:aiLabel",
-  "src/coach/RecommendationCard.tsx:coachButtons",
-  "src/coach/RecommendationCard.tsx:coachCard",
-  "src/coach/RecommendationCard.tsx:safetyMessage",
-  "src/coach/RecommendationCard.tsx:suggestedWeight",
-  "src/coach/RecommendationCard.tsx:whyLabel",
-  "src/coach/RecommendationCard.tsx:whyText",
   "src/screens/HistoryScreen.tsx:historyMeta",
   "src/screens/HistoryScreen.tsx:historyStamp",
   "src/screens/ProgressScreen.tsx:prCard",

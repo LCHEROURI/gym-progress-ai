@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · A visual pass must not "fix" intentional accessibility defaults
+
+**Experience:** The identity pass (soft cards, icon set, design tokens) nearly shrank the 20px base font — it is exactly what made the app read as "a bunch of text". But `body { font-size: 20px }` is the intentional large-text default (`largeTextEnabled`; `.smallText` opts down to 17px). The pass kept the type scale and changed the STRUCTURE instead: page background + white cards + hairline borders + shadows, a stroke icon set, green active states — "reads as an app" came from hierarchy and chrome, not smaller text. Verified live by computed-style probes (tokens applied, 6 nav SVGs, hairline card borders) after compositor frames went stale twice.
+
+**Reflection:** Visual makeovers chase "sleek" by shrinking type; in an accessibility-first product that trades away the very default some users depend on. Identity comes from spacing, hierarchy, color, and iconography — dimensions that never fight legibility.
+
+**Distilled Principle:** Never reduce type size in a visual pass without checking whether the size is an intentional accessibility default; build the identity from spacing, hierarchy, color, and icons instead.
+
+**Next Experiment:** Candidate: record the accessibility floor (min text size, min tap target) in TESTING.md or a CSS comment block so future passes know what not to cut.
+
+**Confidence:** Medium (one near-miss caught by asking why the base was 20px)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** No.
+
 ## 2026-09-24 · Refactor copy-locked text into verbatim slices with a derived join
 
 **Experience:** Replacing the install sheet's text-only steps with an illustrated diagram meant splitting one sentence across step captions — but the wording is copy-locked: `hintText()` required "Add to Home Screen", "Web App", "then Add" (+ Safari's "Edit Actions") in one element's text, per-language labels were pinned, and `getByText` uniqueness demanded each phrase appear exactly once in the DOM. Solution: split the 20 sentences (4 languages × 5 browsers) into verbatim slices (`share`/`home`/`add`/`note`) and keep `steps` DERIVED by joining them — every existing i18n assertion (including the locked label quotes) passed untouched, the sentence can never drift from the captions (single source), and only one query helper (`hintText()`) was re-pointed at the steps container with all assertion strings byte-identical. The SVG mockups stay label-free so the phrases remain unique.

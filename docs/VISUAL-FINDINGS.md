@@ -16,6 +16,10 @@ Coverage: 9/9 screens probed at 390×844; 8/9 pixel-verified (workout frame stal
 | V6 | P3 | today-plan | Title→target gap inside plan cards ~35px vs 16–20px elsewhere | `.cardTop` spacing | normalize the gap |
 | V7 | P3 | complete | Summary values sit flush right, ~200px from their labels | `dl` space-between | closer value column or divider (nit) |
 
+## Status update (2026-09-24 identity pass)
+
+The visual identity pass (soft cards, tokens, icon set) closed **V1** (coach decision buttons now 48px), **V3** (disabled SEND restyled — readable gray on light gray, cascade-pinned last), **V4** (chips left-aligned), **V5** (fixed earlier when `.recoveryCopy` got its rule), and **V7** (summary rows now carry hairline dividers). **V6** improved (card gaps tightened 12→10px, `.cardTop` gap 12→8px) — re-measure on the next pass.
+
 ## Clean screens
 
 - settings: zero violations across all 1862px (toggles show selected state; time inputs clean).
