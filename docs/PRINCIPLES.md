@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Emulator suites must clear state to be re-runnable
+
+**Experience:** Extending the installEvents funnel (`nudge_shown`/`nudge_dismissed`) shipped its first rules tests and the emulator suite went 3–4 red on cases that were green earlier — PERMISSION_DENIED on plain `create` calls. Cause: the Firestore emulator daemon persists docs across runs, the cases use fixed doc ids (`s6`, `pr1`, `w1`), so a second `.set()` is an *update* — and the append-only blocks deny updates. The failure count even grew between runs (the new `ev1` write flipped its own create to an update next run). Fixed with `env.clearFirestore()` in `beforeAll`; suite is now 17/17 on repeat runs.
+
+**Reflection:** A suite that only passes on a fresh daemon is not green — it is unrun twice. Create-vs-update semantics depend on hidden external state, so any backend-backed suite needs explicit state clearing at start (or unique ids per run).
+
+**Distilled Principle:** Emulator/integration suites must be hermetic across runs: clear backend state at suite start, and treat "passes only on a fresh daemon" as a defect.
+
+**Next Experiment:** Candidate TESTING.md note: emulator suites clear state in `beforeAll`; per-run unique ids as a second line of defense.
+
+**Confidence:** Medium (failure count grew run-over-run — a clean reproduction)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** Done — `env.clearFirestore()` in the suite.
+
 ## 2026-09-24 · Verification traps: stale frames and false-negative globs
 
 **Experience:** The weight-display build hit two verification traps in one session. (1) `preview_screenshot` returned **stale compositor frames** — screenshots showed pre-change cards while `innerText` probes proved the new DOM was live; the webview only produces frames while the Preview tab is visible, and `preview_resize` holds only until the next navigation (re-apply silently no-ops after). Caught by cross-checking each frame against a DOM measurement of the same state; fixed by fresh-tab-per-capture with resize at tab birth, panel visible. (2) `glob "src/**/TodayScreen*"` reported **0 files** although `TodayScreen.test.tsx` was tracked at HEAD — `write_file` silently clobbered 5 existing tests. Caught by reconciling test counts after the change (258 expected vs 253 observed); restored via `git show HEAD:` and merged.
