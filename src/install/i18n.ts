@@ -7,6 +7,7 @@ export interface InstallCopy {
   tail: string;
   nudge: string;
   dismiss: string;
+  close: string;
 }
 
 /**
@@ -34,6 +35,7 @@ export const INSTALL_COPY: Record<Lang, InstallCopy> = {
     tail: "The app opens full screen from your Home Screen.",
     nudge: "Get the app: open Share and tap “Add to Home Screen”, then Add.",
     dismiss: "DISMISS",
+    close: "CLOSE",
   },
   fr: {
     steps: {
@@ -52,6 +54,7 @@ export const INSTALL_COPY: Record<Lang, InstallCopy> = {
     nudge:
       "Installez l’app : ouvrez Partager et touchez « Sur l’écran d’accueil », puis Ajouter.",
     dismiss: "IGNORER",
+    close: "FERMER",
   },
   es: {
     steps: {
@@ -70,6 +73,7 @@ export const INSTALL_COPY: Record<Lang, InstallCopy> = {
     nudge:
       "Consigue la app: abre Compartir y toca « Añadir a pantalla de inicio », luego Añadir.",
     dismiss: "OMITIR",
+    close: "CERRAR",
   },
   de: {
     steps: {
@@ -88,6 +92,7 @@ export const INSTALL_COPY: Record<Lang, InstallCopy> = {
     nudge:
       "Hol dir die App: öffne Teilen und tippe auf „Zum Home-Bildschirm“, dann auf Hinzufügen.",
     dismiss: "IGNORIEREN",
+    close: "SCHLIESSEN",
   },
 };
 

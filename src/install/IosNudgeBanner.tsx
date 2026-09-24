@@ -1,4 +1,5 @@
 import { useState } from "react";
+import InstallStepsSheet from "./InstallStepsSheet";
 import { currentInstallEnv, currentLanguages, detectIosBrowser } from "./iosBrowser";
 import { installCopy } from "./i18n";
 import { isAppleStandalone } from "./useInstallPrompt";
@@ -26,29 +27,40 @@ function markDismissed(): void {
 /**
  * One-time install nudge on the TODAY screen for iOS visitors (every iOS
  * browser installs manually through a Share menu), in the device's language.
- * Hidden off iOS, once installed, and after dismissal — full per-browser steps
- * live in Settings.
+ * Hidden off iOS, once installed, and after dismissal. Tapping the text opens
+ * the full per-browser steps in a sheet (they also live in Settings).
  */
 export default function IosNudgeBanner() {
   const [dismissed, setDismissed] = useState(alreadyDismissed);
+  const [stepsOpen, setStepsOpen] = useState(false);
   if (dismissed) return null;
   const env = currentInstallEnv();
   if (detectIosBrowser(env) === null) return null;
   if (env.standalone || isAppleStandalone()) return null;
   const copy = installCopy(currentLanguages());
   return (
-    <div className="nudgeBanner" role="note" aria-label="Install app">
-      <p dir="auto">{copy.nudge}</p>
-      <button
-        type="button"
-        className="nudgeDismiss"
-        onClick={() => {
-          markDismissed();
-          setDismissed(true);
-        }}
-      >
-        {copy.dismiss}
-      </button>
-    </div>
+    <>
+      <div className="nudgeBanner" role="note" aria-label="Install app">
+        <button
+          type="button"
+          className="nudgeOpen"
+          dir="auto"
+          onClick={() => setStepsOpen(true)}
+        >
+          {copy.nudge}
+        </button>
+        <button
+          type="button"
+          className="nudgeDismiss"
+          onClick={() => {
+            markDismissed();
+            setDismissed(true);
+          }}
+        >
+          {copy.dismiss}
+        </button>
+      </div>
+      {stepsOpen && <InstallStepsSheet onClose={() => setStepsOpen(false)} />}
+    </>
   );
 }

@@ -6,6 +6,8 @@ import IosNudgeBanner from "./IosNudgeBanner";
 
 const IPHONE_SAFARI =
   "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/27.0 Mobile/15E148 Safari/604.1";
+const IPHONE_CHROME =
+  "Mozilla/5.0 (iPhone; CPU iPhone OS 18_7 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/141.0.0.0 Mobile/15E148 Safari/604.1";
 
 function stubBrowser(opts: { userAgent?: string; standalone?: boolean; appleStandalone?: boolean } = {}) {
   vi.stubGlobal("navigator", {
@@ -60,6 +62,44 @@ describe("IosNudgeBanner", () => {
     render(<IosNudgeBanner />);
     expect(screen.getByRole("note")).toHaveTextContent("« Sur l’écran d’accueil »");
     expect(screen.getByRole("button", { name: "IGNORER" })).toBeEnabled();
+  });
+
+  it("opens the full per-browser install steps in a sheet from the nudge text", () => {
+    stubBrowser();
+    render(<IosNudgeBanner />);
+    fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
+    const sheet = screen.getByRole("dialog", { name: "Install app" });
+    expect(sheet).toHaveTextContent(/tap the Share button/);
+    expect(sheet).toHaveTextContent(/Edit Actions/);
+    expect(sheet).toHaveTextContent(
+      "The app opens full screen from your Home Screen.",
+    );
+  });
+
+  it("words the sheet steps for the actual browser (Chrome on iOS)", () => {
+    stubBrowser({ userAgent: IPHONE_CHROME });
+    render(<IosNudgeBanner />);
+    fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
+    expect(screen.getByRole("dialog", { name: "Install app" })).toHaveTextContent(
+      /right of the address bar/,
+    );
+  });
+
+  it("closes the sheet without dismissing the nudge", () => {
+    stubBrowser();
+    render(<IosNudgeBanner />);
+    fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
+    fireEvent.click(screen.getByRole("button", { name: "CLOSE" }));
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.getByRole("note", { name: "Install app" })).toBeVisible();
+  });
+
+  it("closes the sheet with Escape", () => {
+    stubBrowser();
+    render(<IosNudgeBanner />);
+    fireEvent.click(screen.getByRole("button", { name: /Get the app/ }));
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).toBeNull();
   });
 
   it("dismisses for good across renders", () => {

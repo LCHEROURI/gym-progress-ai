@@ -27,6 +27,7 @@ describe("INSTALL_COPY", () => {
         copy.tail,
         copy.nudge,
         copy.dismiss,
+        copy.close,
       ];
       for (const s of strings) expect(s.length).toBeGreaterThan(0);
     }

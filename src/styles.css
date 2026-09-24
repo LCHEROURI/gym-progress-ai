@@ -412,3 +412,35 @@ input {
   border-radius: 12px;
   background: #ffffff;
 }
+
+.nudgeOpen {
+  margin: 0;
+  padding: 8px 0;
+  min-height: 48px;
+  font: inherit;
+  color: inherit;
+  text-align: left;
+  text-decoration: underline;
+  background: none;
+  border: none;
+  cursor: pointer;
+}
+
+.installSheet {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  align-items: flex-end;
+  background: rgba(0, 0, 0, 0.45);
+  z-index: 20;
+}
+
+.installSheetPanel {
+  width: 100%;
+  max-width: 560px;
+  margin: 0 auto;
+  padding: 20px 16px 24px;
+  background: #ffffff;
+  border: 2px solid #111111;
+  border-radius: 16px 16px 0 0;
+}
