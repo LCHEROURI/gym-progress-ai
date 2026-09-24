@@ -1,11 +1,13 @@
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
+import type { RecoveryInfo } from "../today/recovery";
 
 interface Props {
   today: Date;
   onStart?: () => void;
+  recovery?: RecoveryInfo;
 }
 
-export default function TodayScreen({ today, onStart }: Props) {
+export default function TodayScreen({ today, onStart, recovery }: Props) {
   const template = templateForWeekday(today.getDay());
   const dateLine = today.toLocaleDateString("en-US", {
     weekday: "long",
@@ -17,7 +19,11 @@ export default function TodayScreen({ today, onStart }: Props) {
     <section aria-label="Today">
       <p className="eyebrow">TODAY</p>
       <p className="dateLine">{dateLine}</p>
-      {template ? <WorkoutPlan template={template} onStart={onStart} /> : <RecoveryDay />}
+      {template ? (
+        <WorkoutPlan template={template} onStart={onStart} />
+      ) : (
+        <RecoveryDay info={recovery} />
+      )}
     </section>
   );
 }
@@ -52,11 +58,44 @@ function WorkoutPlan({
   );
 }
 
-function RecoveryDay() {
+function RecoveryDay({ info }: { info?: RecoveryInfo }) {
   return (
     <>
       <h2 className="workoutName">RECOVERY DAY</h2>
       <p className="recoveryCopy">Rest, hydrate, and come back strong.</p>
+      {info && (
+        <>
+          <p className="eyebrow">NEXT WORKOUT</p>
+          <p className="dateLine">
+            {info.next.weekday} · {info.next.name}
+          </p>
+          <p className="recoveryCopy">{info.next.dateLabel}</p>
+
+          <p className="eyebrow">LAST COMPLETED</p>
+          {info.last ? (
+            <>
+              <p className="dateLine">
+                {info.last.weekday} · {info.last.name}
+              </p>
+              <p className="recoveryCopy">{info.last.dateLabel}</p>
+            </>
+          ) : (
+            <p className="dateLine">No workouts yet</p>
+          )}
+
+          <p className="eyebrow">THIS WEEK</p>
+          <p className="dateLine">
+            {info.week.completed} of {info.week.planned} complete
+          </p>
+
+          {info.tip && (
+            <>
+              <p className="eyebrow">RECOVERY TIP</p>
+              <p className="recoveryCopy">{info.tip}</p>
+            </>
+          )}
+        </>
+      )}
     </>
   );
 }

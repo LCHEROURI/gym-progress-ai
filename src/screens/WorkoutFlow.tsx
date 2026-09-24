@@ -3,7 +3,9 @@ import type { Firestore } from "firebase/firestore";
 import { initFirebase } from "../data/firebase";
 import { fetchProfile, saveProfile, type Profile } from "../data/settings";
 import { useSyncStatus } from "../data/useSyncStatus";
+import { fetchHistory, type HistoryRow } from "../data/history";
 import { isoDate } from "../domain/session";
+import { buildRecoveryInfo } from "../today/recovery";
 import { parseEnv } from "../shared/env";
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import { buildCompletionSummary } from "../workout/summary";
@@ -22,6 +24,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
   const [today] = useState(() => new Date());
   const [view, setView] = useState<NavView>("today");
   const [profile, setProfile] = useState<Profile | null>(null);
+  const [rows, setRows] = useState<HistoryRow[] | null>(null);
   const template = templateForWeekday(today.getDay());
   const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
@@ -34,6 +37,20 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
       })
       .catch(() => {
         void 0;
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [db, uid]);
+
+  useEffect(() => {
+    let cancelled = false;
+    fetchHistory({ db }, uid, 20)
+      .then((r) => {
+        if (!cancelled) setRows(r);
+      })
+      .catch(() => {
+        if (!cancelled) setRows([]);
       });
     return () => {
       cancelled = true;
@@ -95,9 +112,13 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     );
   }
   if (!template) {
+    const info = rows ? buildRecoveryInfo(rows, today) : undefined;
+    // The recovery tip is the brief's *optional* AI tip — hidden when AI is off.
+    const recoveryInfo =
+      info && profile?.aiRecommendationsEnabled === false ? { ...info, tip: "" } : info;
     return (
       <div className={cls}>
-        <TodayScreen today={today} />
+        <TodayScreen today={today} recovery={recoveryInfo} />
         {nav}
       </div>
     );
