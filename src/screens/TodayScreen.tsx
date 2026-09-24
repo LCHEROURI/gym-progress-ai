@@ -1,4 +1,5 @@
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
+import InstallAppButton from "../install/InstallAppButton";
 import type { RecoveryInfo } from "../today/recovery";
 
 interface Props {
@@ -24,6 +25,7 @@ export default function TodayScreen({ today, onStart, recovery }: Props) {
       ) : (
         <RecoveryDay info={recovery} />
       )}
+      <InstallAppButton />
     </section>
   );
 }

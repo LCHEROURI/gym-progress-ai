@@ -220,3 +220,15 @@ button:focus-visible,
 .smallText .exerciseTarget {
   font-size: 19px;
 }
+
+.secondaryButton {
+  width: 100%;
+  min-height: 56px;
+  margin-top: 12px;
+  font-size: 20px;
+  font-weight: 700;
+  color: #111111;
+  background: #ffffff;
+  border: 2px solid #111111;
+  border-radius: 12px;
+}
