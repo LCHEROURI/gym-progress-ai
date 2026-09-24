@@ -3,6 +3,9 @@ import { connectAuthEmulator, getAuth, type Auth } from "firebase/auth";
 import {
   connectFirestoreEmulator,
   getFirestore,
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
   type Firestore,
 } from "firebase/firestore";
 import type { AppEnv } from "../shared/env";
@@ -22,7 +25,15 @@ export function initFirebase(env: AppEnv): { auth: Auth; db: Firestore } {
       appId: env.appId,
     });
   const auth = getAuth(app);
-  const db: Firestore = getFirestore(app);
+  let db: Firestore;
+  try {
+    // Offline-first: every autosave lands on disk and syncs when the network returns.
+    db = initializeFirestore(app, {
+      localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+    });
+  } catch {
+    db = getFirestore(app);
+  }
   if (env.useEmulator) {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8080);
