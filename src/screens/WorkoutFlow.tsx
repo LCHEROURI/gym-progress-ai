@@ -13,6 +13,7 @@ import { buildCompletionSummary } from "../workout/summary";
 import { buildCelebration, type Celebration } from "../workout/streak";
 import StreakToast from "../workout/StreakToast";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
+import { useInstallAnalytics } from "../install/useInstallAnalytics";
 import BottomNav, { type NavView } from "../nav/BottomNav";
 import CoachScreen from "./CoachScreen";
 import CompleteScreen from "./CompleteScreen";
@@ -31,6 +32,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
   const template = templateForWeekday(today.getDay());
   const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
+  useInstallAnalytics(db, uid);
 
   useEffect(() => {
     let cancelled = false;

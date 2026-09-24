@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { getInstallStatus } from "./installStatus";
+import { trackInstallEvent } from "./install-analytics";
 
 /** The deferred install prompt captured from `beforeinstallprompt`. */
 export interface BeforeInstallPromptEvent extends Event {
@@ -56,7 +57,8 @@ export function useInstallPrompt(): {
     const captured = deferred;
     setDeferred(null); // one-shot: a captured prompt cannot be reused
     await captured.prompt();
-    await captured.userChoice;
+    const choice = await captured.userChoice;
+    trackInstallEvent({ type: "prompt_result", outcome: choice.outcome });
   }, [deferred]);
 
   const installed =

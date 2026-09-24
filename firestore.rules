@@ -29,6 +29,9 @@ rules_version = '2';
 //   nextWeek list<=20, createdAt
 // personalRecords/{id}: exerciseKey <=60, weight 0..2000, reps 0..200,
 //   sessionId <=40, achievedAt timestamp
+// users/{uid}/installEvents/{id}: id <=40, type 'prompt_offered'|'prompt_result'|'installed',
+//   outcome 'accepted'|'dismissed'|null, method 'browser_prompt'|'home_screen'|null,
+//   userAgent <=400, createdAt timestamp (append-only install funnel)
 // =============================================================
 service cloud.firestore {
   match /databases/{database}/documents {
@@ -206,6 +209,19 @@ service cloud.firestore {
         && request.resource.data.createdAt is timestamp;
     }
 
+    function isValidInstallEvent() {
+      return hasOnly(['id','type','outcome','method','userAgent','createdAt'])
+        && hasAll(['id','type','outcome','method','userAgent','createdAt'])
+        && request.resource.data.id is string && request.resource.data.id.size() <= 40
+        && request.resource.data.type in ['prompt_offered','prompt_result','installed']
+        && (request.resource.data.outcome == null
+          || request.resource.data.outcome in ['accepted','dismissed'])
+        && (request.resource.data.method == null
+          || request.resource.data.method in ['browser_prompt','home_screen'])
+        && str('userAgent', 0, 400)
+        && request.resource.data.createdAt is timestamp;
+    }
+
     // ---------- paths ----------
     match /users/{uid} {
       allow read: if owns(uid);
@@ -243,6 +259,11 @@ service cloud.firestore {
         // The Sunday function may still write via the admin SDK (bypasses rules).
         allow read: if owns(uid);
         allow create: if owns(uid) && isValidWeeklyReport();
+      }
+      match /installEvents/{id} {
+        // append-only install funnel: observability, create + read, never edit
+        allow read: if owns(uid);
+        allow create: if owns(uid) && isValidInstallEvent();
       }
       match /workoutSessions/{sid} {
         allow read: if owns(uid);
