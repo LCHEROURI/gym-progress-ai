@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Pin behavior in render tests when auth gates the dev origin
+
+**Experience:** The dev-only `?screen=` deep link shipped with its production half provable live (`?screen=settings` on web.app lands on TODAY — compiled out) but its dev half unprovable in the browser: (1) a `&`-backgrounded vite dev server died silently when the command shell exited — fixed by daemonizing with a python double-fork + `os.setsid()`; (2) Google sign-in on `localhost` is blocked by Firebase Auth Authorized Domains (`auth/unauthorized-domain`, caught by the app's own error copy). Replaced the blocked live check with a permanent jsdom render test (`src/screens/WorkoutFlow.test.tsx`): opens the screen by URL, syncs the URL on navigate, falls back on unknown values.
+
+**Reflection:** Live-browser verification is the weakest link whenever auth/origin config gates the dev environment; render tests cover the same wiring forever instead of once. And shell `&` is not process detachment — the harness reaps the process group at command exit.
+
+**Distilled Principle:** When a live check is blocked by environment auth, pin the behavior in a render test rather than changing production auth config to make the check pass; keep long-running dev processes alive with double-fork + setsid (never bare `&`).
+
+**Next Experiment:** Candidate TESTING.md note: dev-server runs use double-fork + setsid, and localhost sign-in requires adding `localhost` to Firebase Auth Authorized Domains (console-only).
+
+**Confidence:** Medium (two independent walls in one session, both with durable fixes)
+
+**Scope:** Project
+
+**Automation Opportunity:** No — the render test is the automation.
+
 ## 2026-09-24 · A class name in markup is not evidence of styling
 
 **Experience:** The iPhone check found shipped layout breakage at narrow widths while 218 tests were green: the bottom nav overflowed horizontally (scrollWidth 426 vs 247 viewport), `.setRow`/`.feelRow`/`.weightRow`/`.cardTop` had **zero CSS rules** so Settings and workout rows rendered as jumbled inline content, `.exerciseCard` laid its many children in a flex row, inputs had no `font-size` (iOS Safari zooms on focus below 16px), selected `aria-pressed` states were invisible, and three flex inputs overflowed because flex items don't shrink below intrinsic min-width without `min-width: 0`. Fixed across `src/styles.css` (commits `cc75a06`, `3dad918`, `5947bc4`), each re-measured after deploy (`scrollWidth <= clientWidth` on TODAY, Settings, AI COACH).
