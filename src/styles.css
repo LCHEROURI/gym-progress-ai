@@ -203,7 +203,8 @@ button:focus-visible,
 }
 
 .chatForm input {
-  flex: 1;
+  flex: 1 1 auto;
+  min-width: 0;
   min-height: 56px;
   font-size: 20px;
   border: 2px solid #111111;
@@ -212,6 +213,7 @@ button:focus-visible,
 }
 
 .chatForm button {
+  flex: 0 0 auto;
   min-height: 56px;
   font-size: 18px;
   font-weight: 700;
