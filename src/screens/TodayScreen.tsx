@@ -2,6 +2,7 @@ import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import InstallAppButton from "../install/InstallAppButton";
 import IosNudgeBanner from "../install/IosNudgeBanner";
 import type { RecoveryInfo } from "../today/recovery";
+import WelcomeCard from "../today/WelcomeCard";
 import type { NextWeight } from "../workout/usePlanPreview";
 
 interface Props {
@@ -22,6 +23,8 @@ interface Props {
   onStartWorkout?: () => void;
   onSeeProgress?: () => void;
   onAskCoach?: () => void;
+  /** Whether ANY workout is completed; undefined while history is loading. */
+  hasCompleted?: boolean;
   weightUnit?: "lb" | "kg";
 }
 
@@ -37,6 +40,7 @@ export default function TodayScreen({
   onStartWorkout,
   onSeeProgress,
   onAskCoach,
+  hasCompleted,
   weightUnit,
 }: Props) {
   const template = plan ?? templateForWeekday(today.getDay());
@@ -50,6 +54,7 @@ export default function TodayScreen({
     <section aria-label="Today">
       <p className="eyebrow">TODAY</p>
       <p className="dateLine">{dateLine}</p>
+      <WelcomeCard hasCompleted={hasCompleted} />
       <IosNudgeBanner />
       {template ? (
         <WorkoutPlan

@@ -430,6 +430,22 @@ input {
   min-height: 48px;
 }
 
+/* First-run welcome card: what the app does + the first step, once per device. */
+.welcomeCard {
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 14px;
+  margin: 0 0 12px;
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+}
+
+.welcomeLine {
+  margin: 0;
+  font-size: 16px;
+}
+
 .tip {
   margin: 0;
   font-size: 16px;

@@ -92,6 +92,10 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     setView(v);
   };
 
+  // The welcome card greets KNOWN new users only (never flashes during load).
+  const hasCompleted = rows
+    ? rows.some((r) => r.status === "completed")
+    : undefined;
   const cls = profile && !profile.largeTextEnabled ? "smallText" : "";
   const nav = <BottomNav view={view} onNavigate={navigate} />;
 
@@ -150,6 +154,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
         <TodayScreen
           today={today}
           recovery={recoveryInfo}
+          hasCompleted={hasCompleted}
           onStartWorkout={() => setOffPlan(nextWorkout(today).template)}
           onSeeProgress={() => navigate("progress")}
           onAskCoach={() => navigate("coach")}
@@ -169,6 +174,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
         profile={profile}
         view={view}
         onNavigate={navigate}
+        hasCompleted={hasCompleted}
         onResetPlan={() => setOffPlan(null)}
       />
     </div>
@@ -184,6 +190,7 @@ function ActiveFlow(props: {
   profile: Profile | null;
   view: NavView;
   onNavigate: (v: NavView) => void;
+  hasCompleted?: boolean;
   /** Clears an off-plan pick so the rest day comes back after DONE. */
   onResetPlan?: () => void;
 }) {
@@ -275,6 +282,7 @@ function ActiveFlow(props: {
         <TodayScreen
           today={new Date()}
           plan={props.template}
+          hasCompleted={props.hasCompleted}
           onStart={() => void flow.start(pickedWeights)}
           previousWeights={planPreview.previousWeights}
           nextWeights={planPreview.nextWeights}

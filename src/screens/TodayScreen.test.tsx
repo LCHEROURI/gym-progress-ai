@@ -1,13 +1,15 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 import TodayScreen from "./TodayScreen";
 import { buildRecoveryInfo } from "../today/recovery";
 
 // 2026-09-28 is a Monday → MONDAY template (leg press 2×10, chest press 2×10,
 // seated row 2×10, leg curl 2×8–10, plus cardio/stretch blocks).
 const monday = new Date("2026-09-28T09:00:00");
+
+beforeEach(() => localStorage.clear());
 
 describe("TodayScreen", () => {
   it("shows Wednesday's Balance + Strength workout", () => {
@@ -168,5 +170,33 @@ describe("Recovery day actions (a rest day is still usable)", () => {
     fireEvent.click(screen.getByRole("button", { name: "ASK THE COACH" }));
     expect(onSeeProgress).toHaveBeenCalledOnce();
     expect(onAskCoach).toHaveBeenCalledOnce();
+  });
+});
+
+describe("first-run welcome card", () => {
+  it("greets a known new user with what to do first", () => {
+    render(<TodayScreen today={monday} hasCompleted={false} />);
+    expect(screen.getByText(/WELCOME TO GYM PROGRESS AI/)).toBeInTheDocument();
+    expect(screen.getByText(/remembers/)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "GOT IT" })).toBeInTheDocument();
+  });
+
+  it("GOT IT dismisses it for good", () => {
+    const first = render(<TodayScreen today={monday} hasCompleted={false} />);
+    fireEvent.click(screen.getByRole("button", { name: "GOT IT" }));
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/)).toBeNull();
+    first.unmount();
+    render(<TodayScreen today={monday} hasCompleted={false} />);
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/)).toBeNull();
+  });
+
+  it("stays away once any workout is completed", () => {
+    render(<TodayScreen today={monday} hasCompleted={true} />);
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/)).toBeNull();
+  });
+
+  it("never flashes while history is still loading", () => {
+    render(<TodayScreen today={monday} />);
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/)).toBeNull();
   });
 });
