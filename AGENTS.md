@@ -223,6 +223,7 @@ AI never writes `weightUsed`, never changes the workout plan, never marks sets c
 npm install
 npm run dev            # Vite dev server
 npm run check          # typecheck → lint → test → build
+npm run test:layout    # Playwright layout smoke: no horizontal overflow at 320/390px
 npm run emulators      # Firebase Emulator Suite
 npm run test:emulator  # rules + integration tests
 npm run deploy         # Hosting + Functions + Rules + Indexes (explicit authorization only)

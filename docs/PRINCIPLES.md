@@ -42,7 +42,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Render and measure every screen at the narrowest supported viewport before shipping UI — browser-measured horizontal overflow (`scrollWidth > clientWidth`) is the check, and a class name in markup is not evidence the class is styled.
 
-**Next Experiment:** Candidate automation: a Playwright smoke asserting `scrollWidth <= clientWidth` at 320/390px per screen (jsdom cannot measure layout), or a lint check flagging `className` values with no matching CSS rule. Until then, run the narrow-viewport probe per UI change.
+**Next Experiment:** Done 2026-09-24 — `npm run test:layout` (Playwright, 320/390px, per screen, `tests/overflow.spec.ts` + dev-only `smoke.html` harness) caught a real grid overflow on its first run: `display: grid` auto tracks size to max-content and push cards past the viewport (fixed with `grid-template-columns: minmax(0, 1fr)`). Remaining candidate: a lint check flagging `className` values with no matching CSS rule.
 
 **Confidence:** Medium (multiple independent defects of the same two classes in one audit)
 

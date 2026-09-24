@@ -75,6 +75,9 @@ button:focus-visible,
   list-style: none;
   padding: 0;
   display: grid;
+  /* minmax(0, 1fr): plain `grid` auto tracks size to max-content and overflow
+     narrow viewports instead of letting cards wrap. */
+  grid-template-columns: minmax(0, 1fr);
   gap: 12px;
 }
 
@@ -161,6 +164,7 @@ button:focus-visible,
 
 .chatLog {
   display: grid;
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 12px 0;
 }
