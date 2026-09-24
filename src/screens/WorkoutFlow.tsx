@@ -10,6 +10,7 @@ import { useWorkoutSession } from "../workout/useWorkoutSession";
 import BottomNav, { type NavView } from "../nav/BottomNav";
 import CompleteScreen from "./CompleteScreen";
 import HistoryScreen from "./HistoryScreen";
+import ProgressScreen from "./ProgressScreen";
 import TodayScreen from "./TodayScreen";
 import WorkoutScreen from "./WorkoutScreen";
 
@@ -24,6 +25,14 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     return (
       <>
         <HistoryScreen db={db} uid={uid} />
+        <BottomNav view={view} onNavigate={setView} />
+      </>
+    );
+  }
+  if (view === "progress") {
+    return (
+      <>
+        <ProgressScreen db={db} uid={uid} />
         <BottomNav view={view} onNavigate={setView} />
       </>
     );
