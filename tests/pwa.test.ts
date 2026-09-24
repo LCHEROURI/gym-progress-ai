@@ -30,7 +30,7 @@ describe("PWA installability assets", () => {
 
   it("service worker precaches the shell and never touches API traffic", () => {
     const sw = readFileSync("public/sw.js", "utf8");
-    expect(sw).toContain("gym-progress-ai-v1");
+    expect(sw).toContain("gym-progress-ai-v2");
     expect(sw).toContain("url.origin !== self.location.origin");
     expect(sw).toContain('caches.match("/index.html")');
     // regression: the cache name is spelled consistently

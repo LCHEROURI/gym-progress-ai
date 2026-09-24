@@ -1,4 +1,5 @@
-const CACHE = "gym-progress-ai-v1";
+// Bump the version to flush stale precached shell on the next activation.
+const CACHE = "gym-progress-ai-v2";
 const CORE = [
   "/",
   "/index.html",
