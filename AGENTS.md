@@ -177,6 +177,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 - Vitest for units (jsdom pragma on component tests), emulator tests for rules and Functions integration. Full matrix in `docs/TEST-PLAN.md`.
 - Regression bugs get a red-green test that demonstrably fails before the fix.
 - `npm run check` (typecheck → lint → test → build) is the green gate before any change is called done.
+- Every `className` token must have a CSS rule in `src/styles.css` (a class in markup is not evidence of styling). `npm run lint:classnames` (inside `npm run lint`) enforces this against a ratchet baseline, `scripts/classname-lint-baseline.json`: pre-existing debt is listed, new orphans fail the gate, and styling a class must shrink the baseline (`-- --update-baseline` only for intentional burn-down).
 
 ### 5. Security requirements
 
@@ -223,6 +224,7 @@ AI never writes `weightUsed`, never changes the workout plan, never marks sets c
 npm install
 npm run dev            # Vite dev server
 npm run check          # typecheck → lint → test → build
+npm run lint:classnames # className tokens must have a CSS rule (ratchet baseline)
 npm run test:layout    # Playwright layout smoke: no horizontal overflow at 320/390px
 npm run emulators      # Firebase Emulator Suite
 npm run test:emulator  # rules + integration tests
