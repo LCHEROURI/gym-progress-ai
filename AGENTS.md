@@ -137,3 +137,93 @@ When uncertain between a destructive and non-destructive action, choose the non-
 ## Project-specific rules
 
 Add stack-specific and application-specific rules below this line. They may make the policy stricter, but must preserve the universal repository lock, security protections, verification honesty, and authorization gates above.
+
+### Project identity
+
+Gym Progress AI — a mobile-first personal gym companion. One application per this repository; nothing here belongs to any other checkout. Related-but-unrelated projects (`cook-with-freebuff`, its `webapp-starter/` folder) are separate repositories and are never touched from this one.
+
+| Thing | Name | Location |
+|---|---|---|
+| This repository + directory | `gym-progress-ai` | `~/gym-progress-ai` (standalone git repo) |
+| GitHub remote | `gym-progress-ai` | `LCHEROURI/gym-progress-ai` (private) |
+| Firebase / Google Cloud project | `gym-progress-ai-lcherouri` | provisioned in Phase 2 (globally unique id — the plain id was taken; repo/directory keep the name `gym-progress-ai`) |
+| Template this repo was created from | `universal-vibe-coding-bootstrap` | `LCHEROURI/universal-vibe-coding-bootstrap` |
+
+### 1. Scope boundaries
+
+- Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via server-side Genkit.
+- No Supabase, no PostgreSQL, no Vercel-specific services, no external databases unless the user explicitly approves them.
+- Server code and client code never import each other's internals; shared code lives in `src/shared/` and is environment-agnostic.
+- No application code exists until the phase that introduces it is started. The documents in this repo are the contract between phases.
+
+### 2. Coding standards
+
+- TypeScript strict mode. A `any` needs a written reason beside it.
+- Components use controlled inputs with `useState` or a reducer store; no form libraries.
+- Validate every external boundary (function payloads, AI structured output, Firestore writes) with Zod schemas in `src/shared/schemas/`.
+- Small, single-purpose modules; split a file the moment it holds more than one responsibility.
+- Error copy is honest and actionable — never "Something went wrong".
+
+### 3. Firebase rules
+
+- Firestore rules are **default deny**; every path asserts `request.auth != null && request.auth.uid == uid`.
+- A client-supplied `userId` is never trusted; identity comes from `request.auth` (client) or verified ID tokens (server).
+- Privileged writes (AI recommendations, weekly reports, derived rollups) happen only through Cloud Functions with the Admin SDK.
+- Every rules change ships with an emulator test (`@firebase/rules-unit-testing`). Rules are never deployed before that suite is green.
+
+### 4. Testing requirements
+
+- Per phase: build → run tests → inspect errors → fix → verify functionality → summarize. Existing code is not evidence of working.
+- Vitest for units (jsdom pragma on component tests), emulator tests for rules and Functions integration. Full matrix in `docs/TEST-PLAN.md`.
+- Regression bugs get a red-green test that demonstrably fails before the fix.
+- `npm run check` (typecheck → lint → test → build) is the green gate before any change is called done.
+
+### 5. Security requirements
+
+- API credentials live in Google Cloud Secret Manager — never client code, `.env.local`, git, or logs.
+- App Check is enforced on all AI callables; auth is checked before any quota- or history-bearing work.
+- Firebase Authentication with Google sign-in; no anonymous access to workout records.
+- Analytics are optional and off by default; sensitive health-style notes never enter analytics events.
+
+### 6. AI safety requirements
+
+Full policy in `docs/AI-SAFETY.md`. In short: Gemini is advisory only; the symptom gate suppresses progression advice after concerning symptom reports; no diagnosis, no medication talk, no "push through"; prompts are version-controlled in `functions/src/ai/prompts/`; every recommendation stores its facts, model, and prompt version (audit trail).
+
+### 7. No destructive database actions without confirmation
+
+No bulk deletes, collection drops, field truncation, or reseeding over real data without explicit human confirmation recorded in the change summary. Cleanup scripts target explicitly prefixed test data only and must prove what they delete before deleting it.
+
+### 8. No silent schema changes
+
+Every schema change is declared first in `docs/DATA-MODEL.md`, reviewed, and shipped with its rules/tests update in the same deploy. Additive changes only; renames and removals need a written migration plan.
+
+### 9. Verify before claiming completion
+
+No success claim without fresh command output in the same change summary. "Should work" is not a status. Acceptance claims map one-by-one to `PROJECT-SPEC.md` §15.
+
+### 10. Preserve historical workout data
+
+Completed sessions are append-only history. Past workouts, sets, PRs, and reports are never rewritten, recomputed in place, or deleted. Derived collections (`exerciseStats`) are rebuildable caches computed FROM history and never outrank the sessions themselves.
+
+### 11. Never fabricate user workout history
+
+Missing data renders as "no data yet" / "I don't have enough workout history yet." — never invented numbers, dates, weights, or sessions. AI context builders send only records that exist; deterministic code computes every fact before Gemini sees it.
+
+### 12. Gemini recommendations are suggestions only
+
+AI never writes `weightUsed`, never changes the workout plan, never marks sets complete. The user decides: USE / KEEP / CHOOSE ANOTHER. Every suggestion carries a reason grounded in the user's own numbers.
+
+### Stack and commands
+
+- React 19 + TypeScript + Vite; Firebase Web SDK (Auth, Firestore, optional Messaging); Zod; hand-rolled SVG charts; PWA manifest + service worker.
+- Server: Firebase Cloud Functions (2nd gen) + Genkit + Gemini.
+- Testing: Vitest + Testing Library + jsdom; `@firebase/rules-unit-testing`.
+
+```bash
+npm install
+npm run dev            # Vite dev server
+npm run check          # typecheck → lint → test → build
+npm run emulators      # Firebase Emulator Suite
+npm run test:emulator  # rules + integration tests
+npm run deploy         # Hosting + Functions + Rules + Indexes (explicit authorization only)
+```
