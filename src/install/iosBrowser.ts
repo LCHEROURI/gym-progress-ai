@@ -1,8 +1,20 @@
+import { isStandalone } from "./useInstallPrompt";
+
 export interface InstallEnv {
   userAgent: string;
   platform: string;
   maxTouchPoints: number;
   standalone: boolean;
+}
+
+/** The live browser as an InstallEnv (display-mode standalone included). */
+export function currentInstallEnv(): InstallEnv {
+  return {
+    userAgent: navigator.userAgent,
+    platform: navigator.platform,
+    maxTouchPoints: navigator.maxTouchPoints,
+    standalone: isStandalone(),
+  };
 }
 
 export type IosBrowser = "safari" | "chrome" | "firefox" | "edge" | "other";

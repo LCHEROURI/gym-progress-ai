@@ -368,3 +368,31 @@ input {
   background: #111111;
   color: #ffffff;
 }
+
+.nudgeBanner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 0 0 12px;
+  padding: 12px;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  background: #eef2f7;
+}
+
+.nudgeBanner p {
+  margin: 0;
+  font-size: 17px;
+}
+
+.nudgeDismiss {
+  flex: 0 0 auto;
+  min-height: 48px;
+  min-width: 48px;
+  padding: 0 12px;
+  font-weight: 700;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  background: #ffffff;
+}

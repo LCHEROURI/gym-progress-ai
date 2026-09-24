@@ -1,5 +1,6 @@
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 import InstallAppButton from "../install/InstallAppButton";
+import IosNudgeBanner from "../install/IosNudgeBanner";
 import type { RecoveryInfo } from "../today/recovery";
 
 interface Props {
@@ -20,6 +21,7 @@ export default function TodayScreen({ today, onStart, recovery }: Props) {
     <section aria-label="Today">
       <p className="eyebrow">TODAY</p>
       <p className="dateLine">{dateLine}</p>
+      <IosNudgeBanner />
       {template ? (
         <WorkoutPlan template={template} onStart={onStart} />
       ) : (

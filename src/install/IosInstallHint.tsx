@@ -1,19 +1,9 @@
 import {
+  currentInstallEnv,
   detectIosBrowser,
   shouldShowIosInstallHint,
-  type InstallEnv,
   type IosBrowser,
 } from "./iosBrowser";
-import { isStandalone } from "./useInstallPrompt";
-
-function currentEnv(): InstallEnv {
-  return {
-    userAgent: navigator.userAgent,
-    platform: navigator.platform,
-    maxTouchPoints: navigator.maxTouchPoints,
-    standalone: isStandalone(),
-  };
-}
 
 /** Per-browser wording for the manual Add to Home Screen steps. */
 const STEPS: Record<IosBrowser, string> = {
@@ -35,7 +25,7 @@ const STEPS: Record<IosBrowser, string> = {
  * Hidden off iOS and once the app is already running from the Home Screen.
  */
 export default function IosInstallHint() {
-  const env = currentEnv();
+  const env = currentInstallEnv();
   if (!shouldShowIosInstallHint(env)) return null;
   return (
     <p className="tip">
