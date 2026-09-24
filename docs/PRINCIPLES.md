@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Verification traps: stale frames and false-negative globs
+
+**Experience:** The weight-display build hit two verification traps in one session. (1) `preview_screenshot` returned **stale compositor frames** — screenshots showed pre-change cards while `innerText` probes proved the new DOM was live; the webview only produces frames while the Preview tab is visible, and `preview_resize` holds only until the next navigation (re-apply silently no-ops after). Caught by cross-checking each frame against a DOM measurement of the same state; fixed by fresh-tab-per-capture with resize at tab birth, panel visible. (2) `glob "src/**/TodayScreen*"` reported **0 files** although `TodayScreen.test.tsx` was tracked at HEAD — `write_file` silently clobbered 5 existing tests. Caught by reconciling test counts after the change (258 expected vs 253 observed); restored via `git show HEAD:` and merged.
+
+**Reflection:** Pixels and tool inventories both lie quietly. A screenshot is evidence only when it agrees with a programmatic probe of the same state, and "not found" from one tool is not absence — confirm through git before creating or overwriting a file, and always reconcile test counts after touching tests.
+
+**Distilled Principle:** Never trust a single verification channel: pair every visual capture with a programmatic probe of the same state, and confirm file absence through git (`git ls-files`) before overwriting — tool-reported absence is not evidence of absence.
+
+**Next Experiment:** Candidate TESTING.md note: screenshot sessions cross-check frames against DOM probes; before `write_file` on any path, run `git ls-files --error-unmatch` when the name might exist.
+
+**Confidence:** Medium (two independent traps in one session, both caught by cross-checking)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** Yes — pre-overwrite existence check habit (candidate tool-level guard).
+
 ## 2026-09-24 · Roll a new lint out as a ratchet, not a wall
 
 **Experience:** The className→CSS lint (closing the last candidate from the layout-smoke principle) found **39 orphan uses (32 file:class pairs) on its first run** — `tip`, `recoveryCopy`, `syncBadge`, `coachCard`, `sparkline`, and the whole `RestTimer`/`RecommendationCard` surfaces render markup with zero styling. Shipping the lint green immediately would have forced either a risky 32-class style sprint or a disabled lint. Instead the known debt became a committed baseline (`scripts/classname-lint-baseline.json`) and the gate fails only on NEW orphans — CLI (`npm run lint:classnames`, inside `npm run lint`) and vitest wiring test both name `file:line:class`; `-- --update-baseline` is reserved for intentional burn-down.
