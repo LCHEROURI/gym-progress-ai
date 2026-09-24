@@ -10,11 +10,15 @@ import {
 } from "firebase/firestore";
 import type { AppEnv } from "../shared/env";
 
-let cached: { auth: Auth; db: Firestore } | null = null;
+let cached: { app: ReturnType<typeof initializeApp>; auth: Auth; db: Firestore } | null = null;
 
-export function initFirebase(env: AppEnv): { auth: Auth; db: Firestore } {
+export function initFirebase(env: AppEnv): {
+  app: ReturnType<typeof initializeApp>;
+  auth: Auth;
+  db: Firestore;
+} {
   if (cached) return cached;
-  const app =
+  const theApp =
     getApps()[0] ??
     initializeApp({
       apiKey: env.apiKey,
@@ -24,20 +28,20 @@ export function initFirebase(env: AppEnv): { auth: Auth; db: Firestore } {
       messagingSenderId: env.messagingSenderId,
       appId: env.appId,
     });
-  const auth = getAuth(app);
+  const auth = getAuth(theApp);
   let db: Firestore;
   try {
     // Offline-first: every autosave lands on disk and syncs when the network returns.
-    db = initializeFirestore(app, {
+    db = initializeFirestore(theApp, {
       localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
     });
   } catch {
-    db = getFirestore(app);
+    db = getFirestore(theApp);
   }
   if (env.useEmulator) {
     connectAuthEmulator(auth, "http://127.0.0.1:9099", { disableWarnings: true });
     connectFirestoreEmulator(db, "127.0.0.1", 8080);
   }
-  cached = { auth, db };
+  cached = { app: theApp, auth, db };
   return cached;
 }

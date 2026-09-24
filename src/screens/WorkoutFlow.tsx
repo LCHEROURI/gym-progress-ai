@@ -11,6 +11,7 @@ import BottomNav, { type NavView } from "../nav/BottomNav";
 import CompleteScreen from "./CompleteScreen";
 import HistoryScreen from "./HistoryScreen";
 import ProgressScreen from "./ProgressScreen";
+import ReportsScreen from "./ReportsScreen";
 import TodayScreen from "./TodayScreen";
 import WorkoutScreen from "./WorkoutScreen";
 
@@ -18,7 +19,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
   const [today] = useState(() => new Date());
   const [view, setView] = useState<NavView>("today");
   const template = templateForWeekday(today.getDay());
-  const { db } = initFirebase(parseEnv(import.meta.env));
+  const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
 
   if (view === "history") {
@@ -33,6 +34,14 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     return (
       <>
         <ProgressScreen db={db} uid={uid} />
+        <BottomNav view={view} onNavigate={setView} />
+      </>
+    );
+  }
+  if (view === "reports") {
+    return (
+      <>
+        <ReportsScreen db={db} uid={uid} app={app} />
         <BottomNav view={view} onNavigate={setView} />
       </>
     );

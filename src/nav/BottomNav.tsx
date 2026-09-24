@@ -1,4 +1,4 @@
-export type NavView = "today" | "history" | "progress";
+export type NavView = "today" | "history" | "progress" | "reports";
 
 export default function BottomNav({
   view,
@@ -9,7 +9,7 @@ export default function BottomNav({
 }) {
   return (
     <nav className="bottomNav" aria-label="Main">
-      {(["today", "history", "progress"] as const).map((v) => (
+      {(["today", "history", "progress", "reports"] as const).map((v) => (
         <button
           key={v}
           type="button"

@@ -44,6 +44,19 @@ function addDays(dateStr: string, days: number): string {
   return iso(d);
 }
 
+/** ISO Monday of `today`'s week (UTC basis). */
+export function weekStartFor(today: Date): string {
+  const d = new Date(today);
+  d.setUTCHours(0, 0, 0, 0);
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return iso(d);
+}
+
+/** The most recent week whose Sunday already passed — the reportable week. */
+export function latestCompletedWeekStart(today: Date): string {
+  return addDays(weekStartFor(today), -7);
+}
+
 /** Scheduled Mon/Wed/Fri dates inside a Monday-anchored week. */
 export function scheduledDates(weekStart: string): string[] {
   return [0, 2, 4].map((offset) => addDays(weekStart, offset));
