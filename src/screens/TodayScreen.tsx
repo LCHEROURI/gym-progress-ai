@@ -12,6 +12,10 @@ interface Props {
   previousWeights?: Record<string, number | null>;
   /** Deterministic progression preview per resistance exercise. */
   nextWeights?: Record<string, NextWeight | undefined>;
+  /** Pre-picked "today's weight" per exercise key (tapped suggestion line). */
+  pickedWeights?: Record<string, number | undefined>;
+  /** Tap of a suggestion line: the weight to pick, or null to un-pick. */
+  onPickWeight?: (exerciseKey: string, weight: number | null) => void;
   weightUnit?: "lb" | "kg";
 }
 
@@ -21,6 +25,8 @@ export default function TodayScreen({
   recovery,
   previousWeights,
   nextWeights,
+  pickedWeights,
+  onPickWeight,
   weightUnit,
 }: Props) {
   const template = templateForWeekday(today.getDay());
@@ -41,6 +47,8 @@ export default function TodayScreen({
           onStart={onStart}
           previousWeights={previousWeights}
           nextWeights={nextWeights}
+          pickedWeights={pickedWeights}
+          onPickWeight={onPickWeight}
           weightUnit={weightUnit}
         />
       ) : (
@@ -56,12 +64,16 @@ function WorkoutPlan({
   onStart,
   previousWeights,
   nextWeights,
+  pickedWeights,
+  onPickWeight,
   weightUnit,
 }: {
   template: WorkoutTemplate;
   onStart?: () => void;
   previousWeights?: Record<string, number | null>;
   nextWeights?: Record<string, NextWeight | undefined>;
+  pickedWeights?: Record<string, number | undefined>;
+  onPickWeight?: (exerciseKey: string, weight: number | null) => void;
   weightUnit?: "lb" | "kg";
 }) {
   const unit = (weightUnit ?? "lb").toUpperCase();
@@ -76,6 +88,9 @@ function WorkoutPlan({
         {template.exercises.map((e) => {
           const prev = previousWeights?.[e.key] ?? null;
           const next = nextWeights?.[e.key];
+          const picked =
+            next !== undefined &&
+            (pickedWeights?.[e.key] ?? null) === next.suggestedWeight;
           return (
             <li key={e.key} className="exerciseCard">
               <span className="exerciseName">{e.name}</span>
@@ -87,11 +102,18 @@ function WorkoutPlan({
                   : `${e.durationMinutes} min`}
               </span>
               {next && (
-                <p className="nextWeight">
+                <button
+                  type="button"
+                  className="nextWeight"
+                  aria-pressed={picked}
+                  onClick={() =>
+                    onPickWeight?.(e.key, picked ? null : next.suggestedWeight)
+                  }
+                >
                   {next.suggestedWeight === prev
                     ? `KEEP: ${next.suggestedWeight} ${unit}`
                     : `NEXT: ${next.suggestedWeight} ${unit}`}
-                </p>
+                </button>
               )}
               <p className="tip">{e.tip}</p>
             </li>

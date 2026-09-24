@@ -144,4 +144,21 @@ describe("useWorkoutSession + coach wiring", () => {
       expect(mocks.saveExercise).toHaveBeenCalledOnce();
     });
   });
+
+  it("start seeds today's weight from tapped picks (LAST weight untouched)", async () => {
+    const { result } = render();
+    await act(async () => {
+      await result.current.start({ "leg-press": 75 });
+    });
+    const legPress = result.current.exercises.find(
+      (e) => e.exerciseKey === "leg-press",
+    )!;
+    expect(legPress.weightUsed).toBe(75);
+    expect(legPress.previousWeight).toBe(70);
+    const chestPress = result.current.exercises.find(
+      (e) => e.exerciseKey === "chest-press",
+    )!;
+    // No pick, no history — never fabricate a weight.
+    expect(chestPress.weightUsed).toBeNull();
+  });
 });

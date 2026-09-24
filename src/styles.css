@@ -307,10 +307,28 @@ input {
   font-weight: 600;
 }
 
+/* The suggestion line doubles as a one-tap pick for today's weight: a full-row
+   button kept ≥44px tall (tap-target rule), picked state follows the feelRow
+   convention (solid fill + white text) in the suggestion's green. */
 .nextWeight {
-  margin: 0;
+  display: block;
+  min-height: 44px;
+  margin: 0 -6px;
+  padding: 8px 6px;
+  text-align: left;
+  font-family: inherit;
+  font-size: 16px;
   font-weight: 700;
   color: var(--green);
+  background: none;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+.nextWeight[aria-pressed="true"] {
+  background: var(--green);
+  color: #ffffff;
 }
 
 .tip {

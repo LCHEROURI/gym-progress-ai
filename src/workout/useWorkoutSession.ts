@@ -34,7 +34,8 @@ export interface WorkoutFlow {
   exercises: ExerciseSession[];
   sets: LoggedSet[];
   error: string | null;
-  start: () => Promise<void>;
+  /** initialWeights: tapped suggestion picks, keyed by exercise key. */
+  start: (initialWeights?: Record<string, number>) => Promise<void>;
   patchExercise: (exerciseKey: string, patch: Partial<ExerciseSession>) => Promise<void>;
   patchSession: (patch: Partial<WorkoutSession>) => Promise<void>;
   logSet: (exerciseKey: string, set: WorkoutSet) => Promise<void>;
@@ -69,7 +70,7 @@ export function useWorkoutSession(input: {
   const [recommendations, setRecommendations] = useState<Record<string, CoachSuggestion>>({});
   const ctx: RepoCtx = { db: input.db };
 
-  const start = useCallback(async () => {
+  const start = useCallback(async (initialWeights?: Record<string, number>) => {
     try {
       setError(null);
       const keys = input.template.exercises.map((e) => e.key);
@@ -90,6 +91,7 @@ export function useWorkoutSession(input: {
           input.template,
           previousWeights[t.key] ?? null,
           input.weightUnit ?? "lb",
+          initialWeights?.[t.key],
         ),
       );
       const loads = buildLoads(recent);
@@ -234,11 +236,13 @@ function buildExercise(
   template: WorkoutTemplate,
   previousWeight: number | null,
   unit: "lb" | "kg",
+  initialWeight?: number,
 ): ExerciseSession {
   return buildExerciseSession({
     template,
     order: t.order,
     previousWeight,
+    initialWeight,
     weightUnit: t.kind === "resistance" ? unit : null,
   });
 }

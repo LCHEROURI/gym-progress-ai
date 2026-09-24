@@ -128,6 +128,11 @@ export const fixtures: Record<SmokeScreen, () => ReactElement> = {
       onStart={() => undefined}
       previousWeights={PREVIOUS}
       nextWeights={fixtureNextWeights}
+      // Leg-press shows the picked (tapped) suggestion state in the smoke.
+      pickedWeights={{
+        "leg-press": fixtureNextWeights["leg-press"]!.suggestedWeight,
+      }}
+      onPickWeight={() => undefined}
       weightUnit="lb"
     />
   ),

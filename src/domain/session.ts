@@ -116,6 +116,8 @@ export function buildExerciseSession(input: {
   template: WorkoutTemplate;
   order: number;
   previousWeight: number | null;
+  /** Tapped suggestion pre-fills today's weight; falls back to previousWeight. */
+  initialWeight?: number | null;
   weightUnit: "lb" | "kg" | null;
   now?: Date;
 }): ExerciseSession {
@@ -129,7 +131,7 @@ export function buildExerciseSession(input: {
     targetSets: t.targetSets,
     targetRepsMin: t.targetRepsMin,
     targetRepsMax: t.targetRepsMax,
-    weightUsed: t.kind === "resistance" ? input.previousWeight : null,
+    weightUsed: t.kind === "resistance" ? (input.initialWeight ?? input.previousWeight) : null,
     weightUnit: t.kind === "resistance" ? input.weightUnit : null,
     difficulty: null,
     painStatus: null,

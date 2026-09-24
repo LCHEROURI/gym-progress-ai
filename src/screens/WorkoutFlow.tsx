@@ -192,6 +192,17 @@ function ActiveFlow(props: {
   });
 
   const [celebration, setCelebration] = useState<Celebration | null>(null);
+  // One-tap pre-fill: suggestion lines on plan cards pick "today's weight",
+  // consumed when the workout starts (un-picked exercises keep LAST weight).
+  const [pickedWeights, setPickedWeights] = useState<Record<string, number>>({});
+  const pickWeight = (exerciseKey: string, weight: number | null) => {
+    setPickedWeights((prev) => {
+      const next = { ...prev };
+      if (weight === null) delete next[exerciseKey];
+      else next[exerciseKey] = weight;
+      return next;
+    });
+  };
   const completedDate = props.date;
 
   // Fresh facts at completion so the streak is right even in a long-lived tab.
@@ -250,9 +261,11 @@ function ActiveFlow(props: {
       <>
         <TodayScreen
           today={new Date()}
-          onStart={() => void flow.start()}
+          onStart={() => void flow.start(pickedWeights)}
           previousWeights={planPreview.previousWeights}
           nextWeights={planPreview.nextWeights}
+          pickedWeights={pickedWeights}
+          onPickWeight={pickWeight}
           weightUnit={props.profile?.weightUnit}
         />
         <BottomNav view={props.view} onNavigate={props.onNavigate} />

@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen, within } from "@testing-library/react";
-import { describe, expect, it } from "vitest";
+import { fireEvent, render, screen, within } from "@testing-library/react";
+import { describe, expect, it, vi } from "vitest";
 import TodayScreen from "./TodayScreen";
 import { buildRecoveryInfo } from "../today/recovery";
 
@@ -83,5 +83,54 @@ describe("TodayScreen plan cards (weight display)", () => {
       screen.getByText("Keep your feet flat and avoid locking your knees."),
     ).toBeInTheDocument();
     expect(screen.getByText("Move slowly on the way down.")).toBeInTheDocument();
+  });
+});
+
+describe("TodayScreen one-tap weight pre-fill", () => {
+  const planProps = {
+    previousWeights: { "leg-press": 70, "chest-press": 50 } as Record<
+      string,
+      number | null
+    >,
+    nextWeights: {
+      "leg-press": { action: "increase" as const, suggestedWeight: 75 },
+      "chest-press": { action: "keep" as const, suggestedWeight: 50 },
+    },
+  };
+
+  it("tapping NEXT picks that weight for today", () => {
+    const onPickWeight = vi.fn();
+    render(
+      <TodayScreen today={monday} {...planProps} onPickWeight={onPickWeight} />,
+    );
+    const line = screen.getByRole("button", { name: "NEXT: 75 LB" });
+    expect(line).toHaveAttribute("aria-pressed", "false");
+    fireEvent.click(line);
+    expect(onPickWeight).toHaveBeenCalledWith("leg-press", 75);
+  });
+
+  it("tapping the picked line again un-picks it", () => {
+    const onPickWeight = vi.fn();
+    render(
+      <TodayScreen
+        today={monday}
+        {...planProps}
+        pickedWeights={{ "leg-press": 75 }}
+        onPickWeight={onPickWeight}
+      />,
+    );
+    const line = screen.getByRole("button", { name: "NEXT: 75 LB" });
+    expect(line).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(line);
+    expect(onPickWeight).toHaveBeenCalledWith("leg-press", null);
+  });
+
+  it("the KEEP line is tappable too", () => {
+    const onPickWeight = vi.fn();
+    render(
+      <TodayScreen today={monday} {...planProps} onPickWeight={onPickWeight} />,
+    );
+    fireEvent.click(screen.getByRole("button", { name: "KEEP: 50 LB" }));
+    expect(onPickWeight).toHaveBeenCalledWith("chest-press", 50);
   });
 });
