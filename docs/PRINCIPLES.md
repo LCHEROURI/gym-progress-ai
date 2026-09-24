@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Roll a new lint out as a ratchet, not a wall
+
+**Experience:** The className→CSS lint (closing the last candidate from the layout-smoke principle) found **39 orphan uses (32 file:class pairs) on its first run** — `tip`, `recoveryCopy`, `syncBadge`, `coachCard`, `sparkline`, and the whole `RestTimer`/`RecommendationCard` surfaces render markup with zero styling. Shipping the lint green immediately would have forced either a risky 32-class style sprint or a disabled lint. Instead the known debt became a committed baseline (`scripts/classname-lint-baseline.json`) and the gate fails only on NEW orphans — CLI (`npm run lint:classnames`, inside `npm run lint`) and vitest wiring test both name `file:line:class`; `-- --update-baseline` is reserved for intentional burn-down.
+
+**Reflection:** Rolling a lint over a codebase with pre-existing violations is a policy decision, not a tooling one. A wall forces bad trade-offs; a ratchet locks the door while debt is paid down deliberately. Two details keep it honest: the baseline is exact-match (fixing a class forces the baseline to shrink, so the ledger can't rot), and the checker's detection power is proven with synthetic red fixtures so a green baseline never masks a broken checker.
+
+**Distilled Principle:** When a new lint would fail on pre-existing violations, ship it as a ratchet: committed baseline of current debt, hard failure on anything new, an exact-match test so fixes must shrink the baseline, and a loudly documented override path for intentional cases only.
+
+**Next Experiment:** Burn down `scripts/classname-lint-baseline.json` by styling the 32 orphan classes one component at a time (coach cards → rest timer → sync badge → sparkline), re-measuring each with `npm run test:layout`; delete the file when empty.
+
+**Confidence:** Medium (one strong data point — 39 findings — plus a generalizable rollout pattern)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** Done — `scripts/lint-classnames.ts` + baseline ledger.
+
 ## 2026-09-24 · Push reminders: raw SW push, poll + dedupe, device wall clock
 
 **Experience:** FCM workout reminders shipped (`30152b9`). Three decisions worth keeping: (1) the service worker handles `push` **raw** (`event.data.json()` with defensive shapes) instead of `firebase-messaging`'s `onBackgroundMessage` — the SDK would need hardcoded config in a committed file and a second SW at the same scope; raw handling keeps keys/config out of git and the SW dependency-free (pwa test now asserts no `importScripts`/`firebase` in sw.js). (2) Delivery is one `*/5` poller with a 15-minute catch-up window plus a per-token `reminderState` dedupe doc (exactly-once, jitter-proof) instead of per-user Cloud Scheduler jobs — far fewer moving parts at single-user scale. (3) Reminder wall clock comes from each device's saved IANA `timeZone` via `Intl` (DST-correct) — never a fixed offset. Also confirmed live: `Notification.requestPermission()` on a real click **blocks the page's main thread** in the embedded browser until the prompt is answered.
@@ -42,7 +58,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Render and measure every screen at the narrowest supported viewport before shipping UI — browser-measured horizontal overflow (`scrollWidth > clientWidth`) is the check, and a class name in markup is not evidence the class is styled.
 
-**Next Experiment:** Done 2026-09-24 — `npm run test:layout` (Playwright, 320/390px, per screen, `tests/overflow.spec.ts` + dev-only `smoke.html` harness) caught a real grid overflow on its first run: `display: grid` auto tracks size to max-content and push cards past the viewport (fixed with `grid-template-columns: minmax(0, 1fr)`). Remaining candidate: a lint check flagging `className` values with no matching CSS rule.
+**Next Experiment:** Done 2026-09-24 (both halves) — `npm run test:layout` (Playwright, 320/390px, per screen, `tests/overflow.spec.ts` + dev-only `smoke.html` harness) caught a real grid overflow on its first run: `display: grid` auto tracks size to max-content and push cards past the viewport (fixed with `grid-template-columns: minmax(0, 1fr)`). Then `npm run lint:classnames` began flagging `className` values with no matching CSS rule — its first run found 39 orphan uses, rolled out as a ratchet baseline (see next entry).
 
 **Confidence:** Medium (multiple independent defects of the same two classes in one audit)
 
