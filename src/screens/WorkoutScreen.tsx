@@ -1,6 +1,8 @@
 import { useState } from "react";
 import type { ExerciseSession, WorkoutSession, WorkoutSet } from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
+import RecommendationCard from "../coach/RecommendationCard";
+import type { Recommendation } from "../coach/progression";
 import RestTimer from "../workout/RestTimer";
 import type { SyncState } from "../data/useSyncStatus";
 
@@ -14,6 +16,11 @@ interface Props {
   onPatchSession: (patch: Partial<WorkoutSession>) => void;
   onLogSet: (exerciseKey: string, set: WorkoutSet) => void;
   onFinish: () => void;
+  recommendations?: Record<string, { recommendation: Recommendation; reason: string }>;
+  onDecide?: (
+    exerciseKey: string,
+    decision: { accepted: boolean; finalWeightChosen: number | null },
+  ) => void;
 }
 
 const SYNC_LABEL: Record<SyncState, string> = {
@@ -48,6 +55,8 @@ export default function WorkoutScreen(props: Props) {
             onPatch={(patch) => props.onPatchExercise(e.exerciseKey, patch)}
             onLogSet={(set) => props.onLogSet(e.exerciseKey, set)}
             onSetLogged={() => setResting(e.exerciseKey)}
+            suggestion={props.recommendations?.[e.exerciseKey]}
+            onDecide={(d) => props.onDecide?.(e.exerciseKey, d)}
           />
         ))}
       </ul>
@@ -64,6 +73,8 @@ function ExerciseCard(props: {
   onPatch: (patch: Partial<ExerciseSession>) => void;
   onLogSet: (set: WorkoutSet) => void;
   onSetLogged: () => void;
+  suggestion?: { recommendation: Recommendation; reason: string };
+  onDecide?: (decision: { accepted: boolean; finalWeightChosen: number | null }) => void;
 }) {
   const { exercise: e, templateExercise: t } = props;
   const isResistance = t.kind === "resistance";
@@ -159,6 +170,22 @@ function ExerciseCard(props: {
           </button>
         ))}
       </div>
+      {props.suggestion && props.onDecide && (
+        <RecommendationCard
+          recommendation={props.suggestion.recommendation}
+          reason={props.suggestion.reason}
+          onUse={(w) => {
+            props.onPatch({ weightUsed: w });
+            props.onDecide?.({ accepted: true, finalWeightChosen: w });
+          }}
+          onKeep={() =>
+            props.onDecide?.({ accepted: false, finalWeightChosen: e.weightUsed })
+          }
+          onChooseOther={() =>
+            props.onDecide?.({ accepted: false, finalWeightChosen: null })
+          }
+        />
+      )}
       <button
         type="button"
         className="primaryButton"
