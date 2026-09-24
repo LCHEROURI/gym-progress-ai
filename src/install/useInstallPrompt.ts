@@ -22,8 +22,8 @@ export function isAppleStandalone(): boolean {
 /**
  * Captures the browser's deferred PWA install prompt so the app can offer its
  * own one-tap install button. The button only appears while the browser is
- * actually offering installation (Chrome/Edge; iOS Safari installs via Add to
- * Home Screen and never fires this event).
+ * actually offering installation (Chrome/Edge on desktop and Android; iOS
+ * browsers install via Add to Home Screen and never fire this event).
  */
 export function useInstallPrompt(): {
   canInstall: boolean;
