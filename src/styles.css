@@ -91,3 +91,117 @@ button:focus-visible,
   font-size: 22px;
   white-space: nowrap;
 }
+
+.sectionTitle {
+  font-size: 20px;
+  letter-spacing: 0.06em;
+  border-bottom: 2px solid #111111;
+  padding-bottom: 4px;
+}
+
+.summaryList div {
+  display: flex;
+  justify-content: space-between;
+  font-size: 22px;
+  padding: 6px 0;
+}
+
+.summaryList dd {
+  font-weight: 700;
+}
+
+.rowButton {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  background: none;
+  border: none;
+  font-size: 20px;
+  text-align: left;
+}
+
+.bottomNav {
+  position: sticky;
+  bottom: 0;
+  display: flex;
+  background: #ffffff;
+  border-top: 2px solid #111111;
+}
+
+.bottomNav button {
+  flex: 1;
+  min-height: 64px;
+  font-size: 15px;
+  font-weight: 700;
+  background: none;
+  border: none;
+}
+
+.bottomNav button[aria-current="page"] {
+  color: var(--blue);
+  border-top: 4px solid var(--blue);
+}
+
+.chatLog {
+  display: grid;
+  gap: 8px;
+  margin: 12px 0;
+}
+
+.chatUser,
+.chatCoach {
+  margin: 0;
+  padding: 12px;
+  border-radius: 12px;
+  font-size: 20px;
+}
+
+.chatUser {
+  background: var(--blue);
+  color: #ffffff;
+}
+
+.chatCoach {
+  background: #eef2f7;
+}
+
+.quickRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+
+.quickChip {
+  font-size: 16px;
+  min-height: 48px;
+  border: 2px solid #111111;
+  border-radius: 24px;
+  background: #ffffff;
+}
+
+.chatForm {
+  display: flex;
+  gap: 8px;
+}
+
+.chatForm input {
+  flex: 1;
+  min-height: 56px;
+  font-size: 20px;
+  border: 2px solid #111111;
+  border-radius: 12px;
+  padding: 0 12px;
+}
+
+.chatForm button {
+  min-height: 56px;
+  font-size: 18px;
+  font-weight: 700;
+  border: none;
+  border-radius: 12px;
+  background: var(--green);
+  color: #ffffff;
+}

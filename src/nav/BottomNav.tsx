@@ -1,4 +1,12 @@
-export type NavView = "today" | "history" | "progress" | "reports";
+export type NavView = "today" | "history" | "progress" | "coach" | "reports";
+
+const LABELS: Record<NavView, string> = {
+  today: "TODAY",
+  history: "HISTORY",
+  progress: "PROGRESS",
+  coach: "AI COACH",
+  reports: "REPORTS",
+};
 
 export default function BottomNav({
   view,
@@ -9,14 +17,14 @@ export default function BottomNav({
 }) {
   return (
     <nav className="bottomNav" aria-label="Main">
-      {(["today", "history", "progress", "reports"] as const).map((v) => (
+      {(Object.keys(LABELS) as NavView[]).map((v) => (
         <button
           key={v}
           type="button"
           aria-current={view === v ? "page" : undefined}
           onClick={() => onNavigate(v)}
         >
-          {v.toUpperCase()}
+          {LABELS[v]}
         </button>
       ))}
     </nav>

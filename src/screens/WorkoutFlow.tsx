@@ -11,6 +11,7 @@ import BottomNav, { type NavView } from "../nav/BottomNav";
 import CompleteScreen from "./CompleteScreen";
 import HistoryScreen from "./HistoryScreen";
 import ProgressScreen from "./ProgressScreen";
+import CoachScreen from "./CoachScreen";
 import ReportsScreen from "./ReportsScreen";
 import TodayScreen from "./TodayScreen";
 import WorkoutScreen from "./WorkoutScreen";
@@ -34,6 +35,14 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
     return (
       <>
         <ProgressScreen db={db} uid={uid} />
+        <BottomNav view={view} onNavigate={setView} />
+      </>
+    );
+  }
+  if (view === "coach") {
+    return (
+      <>
+        <CoachScreen db={db} uid={uid} app={app} />
         <BottomNav view={view} onNavigate={setView} />
       </>
     );
