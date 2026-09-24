@@ -5,6 +5,10 @@ import { describe, expect, it } from "vitest";
 import TodayScreen from "./TodayScreen";
 import { buildRecoveryInfo } from "../today/recovery";
 
+// 2026-09-28 is a Monday → MONDAY template (leg press 2×10, chest press 2×10,
+// seated row 2×10, leg curl 2×8–10, plus cardio/stretch blocks).
+const monday = new Date("2026-09-28T09:00:00");
+
 describe("TodayScreen", () => {
   it("shows Wednesday's Balance + Strength workout", () => {
     render(<TodayScreen today={new Date("2026-09-23T09:00:00")} />);
@@ -13,10 +17,10 @@ describe("TodayScreen", () => {
   });
 
   it("lists every exercise with its target", () => {
-    render(<TodayScreen today={new Date("2026-09-28T09:00:00")} />);
+    render(<TodayScreen today={monday} />);
     const list = screen.getByRole("list");
     expect(within(list).getAllByRole("listitem")).toHaveLength(7);
-    expect(screen.getAllByText("2 × 10")).toHaveLength(3);
+    expect(screen.getAllByText("2 × 10 · NO WEIGHT YET")).toHaveLength(3);
     expect(screen.getByText("6 min")).toBeInTheDocument();
   });
 
@@ -44,5 +48,40 @@ describe("TodayScreen", () => {
     const recovery = buildRecoveryInfo([], new Date("2026-09-24T12:00:00Z"));
     render(<TodayScreen today={new Date("2026-09-24T09:00:00")} recovery={recovery} />);
     expect(screen.getByText("No workouts yet")).toBeInTheDocument();
+  });
+});
+
+describe("TodayScreen plan cards (weight display)", () => {
+  it("shows reps with the last weight and the suggested next weight", () => {
+    render(
+      <TodayScreen
+        today={monday}
+        onStart={() => undefined}
+        previousWeights={{ "leg-press": 70, "chest-press": 50 }}
+        nextWeights={{
+          "leg-press": { action: "increase", suggestedWeight: 75 },
+          "chest-press": { action: "keep", suggestedWeight: 50 },
+        }}
+        weightUnit="lb"
+      />,
+    );
+    expect(screen.getByText("2 × 10 @ 70 LB")).toBeInTheDocument();
+    expect(screen.getByText("NEXT: 75 LB")).toBeInTheDocument();
+    expect(screen.getByText("2 × 10 @ 50 LB")).toBeInTheDocument();
+    expect(screen.getByText("KEEP: 50 LB")).toBeInTheDocument();
+  });
+
+  it("never fabricates a weight: shows NO WEIGHT YET and no suggestion without history", () => {
+    render(<TodayScreen today={monday} onStart={() => undefined} previousWeights={{}} />);
+    expect(screen.getAllByText(/NO WEIGHT YET/).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/NEXT:|KEEP:/)).not.toBeInTheDocument();
+  });
+
+  it("shows the form tip on each exercise card", () => {
+    render(<TodayScreen today={monday} onStart={() => undefined} />);
+    expect(
+      screen.getByText("Keep your feet flat and avoid locking your knees."),
+    ).toBeInTheDocument();
+    expect(screen.getByText("Move slowly on the way down.")).toBeInTheDocument();
   });
 });

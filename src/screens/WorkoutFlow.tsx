@@ -13,6 +13,7 @@ import { buildCompletionSummary } from "../workout/summary";
 import { buildCelebration, type Celebration } from "../workout/streak";
 import StreakToast from "../workout/StreakToast";
 import { useWorkoutSession } from "../workout/useWorkoutSession";
+import { usePlanPreview } from "../workout/usePlanPreview";
 import { useInstallAnalytics } from "../install/useInstallAnalytics";
 import PushReminders from "../reminders/PushReminders";
 import BottomNav, { type NavView } from "../nav/BottomNav";
@@ -182,6 +183,13 @@ function ActiveFlow(props: {
     coachEnabled: props.profile?.aiRecommendationsEnabled,
     weightUnit: props.profile?.weightUnit,
   });
+  const planPreview = usePlanPreview({
+    db: props.db,
+    uid: props.uid,
+    template: props.template,
+    coachEnabled: props.profile?.aiRecommendationsEnabled,
+    machineIncrements: props.profile?.machineIncrements,
+  });
 
   const [celebration, setCelebration] = useState<Celebration | null>(null);
   const completedDate = props.date;
@@ -240,7 +248,13 @@ function ActiveFlow(props: {
   if (flow.phase === "today" || !flow.session) {
     return (
       <>
-        <TodayScreen today={new Date()} onStart={() => void flow.start()} />
+        <TodayScreen
+          today={new Date()}
+          onStart={() => void flow.start()}
+          previousWeights={planPreview.previousWeights}
+          nextWeights={planPreview.nextWeights}
+          weightUnit={props.profile?.weightUnit}
+        />
         <BottomNav view={props.view} onNavigate={props.onNavigate} />
       </>
     );

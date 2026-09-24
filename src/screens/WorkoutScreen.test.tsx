@@ -50,6 +50,12 @@ describe("WorkoutScreen (gym clipboard)", () => {
     expect(screen.getByText("LAST: 70 LB")).toBeInTheDocument();
   });
 
+  it("shows reps with today's weight on the card header", () => {
+    renderScreen();
+    expect(screen.getByText("2 × 10 @ 70 LB")).toBeInTheDocument();
+    expect(screen.getAllByText("2 × 10 @ 0 LB")).toHaveLength(2);
+  });
+
   it("weight + steps up by 5 lb through autosave patch", () => {
     const props = renderScreen();
     fireEvent.click(screen.getAllByRole("button", { name: "Increase weight" })[0]);

@@ -9,6 +9,11 @@ import {
 } from "../domain/session";
 import { buildRecoveryInfo } from "../today/recovery";
 import { defaultProfile } from "../data/settings";
+import {
+  recommendWeight,
+  type ExerciseLoad,
+  type Recommendation,
+} from "../coach/progression";
 import CoachScreen from "../screens/CoachScreen";
 import CompleteScreen from "../screens/CompleteScreen";
 import HistoryScreen from "../screens/HistoryScreen";
@@ -34,14 +39,71 @@ const session = buildSession({
   scheduledDate: "2026-09-28",
   now,
 });
+
+// Synthetic last-session weights per machine (fake by design, like the rest of
+// the fixture data) so the "@ weight" display renders with and without history.
+const PREVIOUS: Record<string, number> = {
+  "leg-press": 70,
+  "chest-press": 50,
+  "seated-row": 60,
+  "leg-curl": 40,
+};
+
 const exercises: ExerciseSession[] = MONDAY.exercises.map((t) =>
   buildExerciseSession({
     template: MONDAY,
     order: t.order,
-    previousWeight: t.key === "leg-press" ? 70 : null,
+    previousWeight: PREVIOUS[t.key] ?? null,
     weightUnit: "lb",
     now,
   }),
+);
+
+const fixtureLoad = (
+  weight: number,
+  repsPerSet: number[],
+  difficulty: "easy" | "good" | "hard",
+): ExerciseLoad => ({
+  weight,
+  repsPerSet,
+  difficulty,
+  painStatus: "none",
+  symptoms: { pain: false, dizziness: false, shortnessOfBreath: false },
+});
+
+// Suggestions computed by the REAL progression engine over synthetic loads,
+// varied so all three actions (increase/keep/decrease) render in the smoke.
+const FIXTURE_HISTORIES: Record<string, ExerciseLoad[]> = {
+  "leg-press": [fixtureLoad(70, [10, 10], "good")],
+  "chest-press": [fixtureLoad(50, [10, 10], "hard")],
+  "seated-row": [fixtureLoad(60, [7, 8], "good"), fixtureLoad(60, [8, 7], "good")],
+  "leg-curl": [fixtureLoad(40, [10, 10], "easy")],
+};
+
+const fixtureRecommendations: Record<
+  string,
+  { recommendation: Recommendation; reason: string }
+> = {};
+for (const t of MONDAY.exercises) {
+  if (t.kind !== "resistance") continue;
+  const recommendation = recommendWeight({
+    loads: FIXTURE_HISTORIES[t.key] ?? [],
+    targetSets: t.targetSets ?? 1,
+    targetRepsMin: t.targetRepsMin ?? 10,
+    increment: 5,
+  });
+  fixtureRecommendations[t.key] = { recommendation, reason: recommendation.reason };
+}
+
+const fixtureNextWeights = Object.fromEntries(
+  Object.entries(fixtureRecommendations).map(([key, { recommendation: r }]) => [
+    key,
+    { action: r.action, suggestedWeight: r.suggestedWeight },
+  ]),
+);
+
+const fixtureIncrements = Object.fromEntries(
+  Object.keys(PREVIOUS).map((key) => [key, 5]),
 );
 
 export const fixtures: Record<SmokeScreen, () => ReactElement> = {
@@ -61,7 +123,13 @@ export const fixtures: Record<SmokeScreen, () => ReactElement> = {
     />
   ),
   "today-plan": () => (
-    <TodayScreen today={new Date("2026-09-28T09:00:00")} onStart={() => undefined} />
+    <TodayScreen
+      today={new Date("2026-09-28T09:00:00")}
+      onStart={() => undefined}
+      previousWeights={PREVIOUS}
+      nextWeights={fixtureNextWeights}
+      weightUnit="lb"
+    />
   ),
   settings: () => (
     <>
@@ -76,10 +144,13 @@ export const fixtures: Record<SmokeScreen, () => ReactElement> = {
       exercises={exercises}
       syncState="saved"
       error={null}
+      increments={fixtureIncrements}
+      recommendations={fixtureRecommendations}
       onPatchExercise={() => undefined}
       onPatchSession={() => undefined}
       onLogSet={() => undefined}
       onFinish={() => undefined}
+      onDecide={() => undefined}
     />
   ),
   complete: () => (

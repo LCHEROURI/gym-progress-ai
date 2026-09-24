@@ -92,7 +92,7 @@ function ExerciseCard(props: {
         <span className="exerciseName">{t.name}</span>
         <span className="exerciseTarget">
           {t.targetSets
-            ? `${t.targetSets} × ${t.targetRepsMin}${t.targetRepsMax !== t.targetRepsMin ? `–${t.targetRepsMax}` : ""}`
+            ? `${t.targetSets} × ${t.targetRepsMin}${t.targetRepsMax !== t.targetRepsMin ? `–${t.targetRepsMax}` : ""} @ ${e.weightUsed ?? 0} ${(e.weightUnit ?? "lb").toUpperCase()}`
             : `${t.durationMinutes} min`}
         </span>
       </div>
