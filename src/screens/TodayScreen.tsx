@@ -2,9 +2,10 @@ import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
 
 interface Props {
   today: Date;
+  onStart?: () => void;
 }
 
-export default function TodayScreen({ today }: Props) {
+export default function TodayScreen({ today, onStart }: Props) {
   const template = templateForWeekday(today.getDay());
   const dateLine = today.toLocaleDateString("en-US", {
     weekday: "long",
@@ -16,17 +17,23 @@ export default function TodayScreen({ today }: Props) {
     <section aria-label="Today">
       <p className="eyebrow">TODAY</p>
       <p className="dateLine">{dateLine}</p>
-      {template ? <WorkoutPlan template={template} /> : <RecoveryDay />}
+      {template ? <WorkoutPlan template={template} onStart={onStart} /> : <RecoveryDay />}
     </section>
   );
 }
 
-function WorkoutPlan({ template }: { template: WorkoutTemplate }) {
+function WorkoutPlan({
+  template,
+  onStart,
+}: {
+  template: WorkoutTemplate;
+  onStart?: () => void;
+}) {
   return (
     <>
       <h2 className="workoutName">{template.name.toUpperCase()}</h2>
       <p className="progressLine">0 of {template.exercises.length} complete</p>
-      <button type="button" className="primaryButton">
+      <button type="button" className="primaryButton" onClick={onStart}>
         START WORKOUT
       </button>
       <ul className="cardList">
