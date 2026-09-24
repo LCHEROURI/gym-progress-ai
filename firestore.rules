@@ -1,0 +1,260 @@
+rules_version = '2';
+
+// =============================================================
+// Assumed Data Model — docs/DATA-MODEL.md (2026-09-23)
+// users/{uid}: displayName <=60, weightUnit 'lb'|'kg', defaultRestSeconds 60|75|90,
+//   aiRecommendationsEnabled bool, largeTextEnabled bool,
+//   machineIncrements map<=50, reminderTimes map<=3, createdAt/updatedAt timestamps
+// settings/profile: profile shape as above
+// workoutTemplates/{id}: name <=80, weekday 1|3|5,
+//   workoutType 'strength_bike'|'balance_strength'|'full_body_walk', exercises list<=30
+// workoutSessions/{sid}: id, userId, templateId, workoutType, scheduledDate 'YYYY-MM-DD',
+//   startedAt/completedAt timestamp|null, status enum, overallEffort 'easy'|'good'|'hard'|null,
+//   painReported/dizzinessReported/shortnessOfBreathReported bool, notes <=1000,
+//   createdAt/updatedAt timestamps
+//   exercises/{eid}: exerciseKey <=60, exerciseName <=120, exerciseOrder 1..40,
+//   targetSets 1..20, targetRepsMin/Max 1..200, weightUsed 0..2000, weightUnit,
+//   difficulty enum|null, painStatus 'none'|'mild'|'stopped'|null, completed bool,
+//   durationMinutes 0..600|null, previousWeight 0..2000|null, aiSuggestedWeight 0..2000|null,
+//   aiRecommendationId <=40|null, notes <=1000, createdAt/updatedAt
+//   sets/{setId}: setNumber 1..20, weight 0..2000, reps 0..200, completed bool, createdAt
+// exerciseStats/{key}: lastWeight 0..2000, lastReps list<=20 numbers, lastDifficulty enum|null,
+//   highestWeight 0..2000, totalSessions 0..100000, lastWorkoutDate 'YYYY-MM-DD', updatedAt
+// aiRecommendations/{id}: exerciseKey <=60, date 'YYYY-MM-DD', previousWeight/suggestedWeight
+//   0..2000, reason <=2000, accepted bool|null, finalWeightChosen 0..2000|null,
+//   model <=120, promptVersion <=40, contextFacts map<=60, blockedBySafety bool, createdAt
+// weeklyReports/{id}: weekStart/weekEnd 'YYYY-MM-DD', planned/completed 0..7,
+//   completionRate 0..1, strengthChanges list<=40, cardioMinutes 0..10000, prs list<=40,
+//   missed list<=7, facts map<=60, aiObservations list<=10 strings<=500,
+//   nextWeek list<=20, createdAt
+// personalRecords/{id}: exerciseKey <=60, weight 0..2000, reps 0..200,
+//   sessionId <=40, achievedAt timestamp
+// =============================================================
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ---------- helpers ----------
+    function signedIn() { return request.auth != null; }
+    function owns(uid) { return signedIn() && request.auth.uid == uid; }
+    function hasOnly(fields) { return request.resource.data.keys().hasOnly(fields); }
+    function hasAll(fields) { return request.resource.data.keys().hasAll(fields); }
+    function unchanged(fields) {
+      return !request.resource.data.diff(resource.data).affectedKeys().hasAny(fields);
+    }
+    function str(field, min, max) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].size() >= min
+        && request.resource.data[field].size() <= max;
+    }
+    function optStr(field, max) {
+      return !request.resource.data.keys().hasAny([field])
+        || (request.resource.data[field] is string && request.resource.data[field].size() <= max);
+    }
+    function nullableStr(field, max) {
+      return request.resource.data[field] == null || optStr(field, max);
+    }
+    function num(field, min, max) {
+      return request.resource.data[field] is number
+        && request.resource.data[field] >= min
+        && request.resource.data[field] <= max;
+    }
+    function nullableNum(field, min, max) {
+      return request.resource.data[field] == null || num(field, min, max);
+    }
+    function bool(field) { return request.resource.data[field] is bool; }
+    function isMap(field, maxKeys) {
+      return request.resource.data[field] is map
+        && request.resource.data[field].keys().size() <= maxKeys;
+    }
+    function isList(field, maxItems) {
+      // Rules cannot iterate list elements; bounded size + outer schema is the limit here.
+      return request.resource.data[field] is list && request.resource.data[field].size() <= maxItems;
+    }
+    function dateStr(field) {
+      return request.resource.data[field] is string
+        && request.resource.data[field].matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+    function optTimestamp(field) {
+      return !request.resource.data.keys().hasAny([field]) || request.resource.data[field] is timestamp;
+    }
+    function nullableTimestamp(field) {
+      return request.resource.data[field] == null || request.resource.data[field] is timestamp;
+    }
+
+    // ---------- domain validators (used on BOTH create and update) ----------
+    function isValidProfile() {
+      return hasOnly(['displayName','weightUnit','defaultRestSeconds','aiRecommendationsEnabled',
+        'largeTextEnabled','machineIncrements','reminderTimes','createdAt','updatedAt'])
+        && str('displayName', 0, 60)
+        && request.resource.data.weightUnit in ['lb','kg']
+        && request.resource.data.defaultRestSeconds in [60, 75, 90]
+        && bool('aiRecommendationsEnabled') && bool('largeTextEnabled')
+        && isMap('machineIncrements', 50) && isMap('reminderTimes', 3)
+        && optTimestamp('createdAt') && optTimestamp('updatedAt');
+    }
+
+    function isValidTemplate() {
+      return hasOnly(['name','weekday','workoutType','exercises'])
+        && str('name', 1, 80)
+        && request.resource.data.weekday in [1, 3, 5]
+        && request.resource.data.workoutType in ['strength_bike','balance_strength','full_body_walk']
+        && isList('exercises', 30);
+    }
+
+    function validSessionStatus() {
+      return request.resource.data.status in ['not_started','in_progress','completed','abandoned'];
+    }
+    function validSessionTransition() {
+      let prev = resource.data.status;
+      let next = request.resource.data.status;
+      return (prev == 'not_started' && next == 'in_progress')
+        || (prev == 'in_progress' && (next == 'completed' || next == 'abandoned'))
+        // reopen: recover from an accidental complete/abandon
+        || ((prev == 'completed' || prev == 'abandoned') && next == 'in_progress');
+    }
+    function isValidSession() {
+      return hasAll(['id','userId','templateId','workoutType','scheduledDate','status',
+        'painReported','dizzinessReported','shortnessOfBreathReported','notes','createdAt','updatedAt'])
+        && hasOnly(['id','userId','templateId','workoutType','scheduledDate','startedAt','completedAt',
+        'status','overallEffort','painReported','dizzinessReported','shortnessOfBreathReported',
+        'notes','createdAt','updatedAt'])
+        && request.resource.data.id is string && request.resource.data.id.size() <= 40
+        && request.resource.data.userId == request.auth.uid   // UID lock
+        && request.resource.data.templateId is string && request.resource.data.templateId.size() <= 60
+        && request.resource.data.workoutType in ['strength_bike','balance_strength','full_body_walk']
+        && dateStr('scheduledDate')
+        && nullableTimestamp('startedAt') && nullableTimestamp('completedAt')
+        && validSessionStatus()
+        && (request.resource.data.overallEffort == null
+          || request.resource.data.overallEffort in ['easy','good','hard'])
+        && bool('painReported') && bool('dizzinessReported') && bool('shortnessOfBreathReported')
+        && str('notes', 0, 1000)
+        && optTimestamp('createdAt') && optTimestamp('updatedAt');
+    }
+
+    function isValidExercise() {
+      return hasOnly(['exerciseKey','exerciseName','exerciseOrder','targetSets','targetRepsMin',
+        'targetRepsMax','weightUsed','weightUnit','difficulty','painStatus','completed',
+        'durationMinutes','previousWeight','aiSuggestedWeight','aiRecommendationId','notes',
+        'createdAt','updatedAt'])
+        && hasAll(['exerciseKey','exerciseName','exerciseOrder','completed','createdAt','updatedAt'])
+        && str('exerciseKey', 1, 60) && str('exerciseName', 1, 120)
+        && num('exerciseOrder', 1, 40)
+        && nullableNum('targetSets', 1, 20) && nullableNum('targetRepsMin', 1, 200)
+        && nullableNum('targetRepsMax', 1, 200)
+        && nullableNum('weightUsed', 0, 2000)
+        && (request.resource.data.weightUnit == null || request.resource.data.weightUnit in ['lb','kg'])
+        && (request.resource.data.difficulty == null
+          || request.resource.data.difficulty in ['easy','good','hard'])
+        && (request.resource.data.painStatus == null
+          || request.resource.data.painStatus in ['none','mild','stopped'])
+        && bool('completed')
+        && nullableNum('durationMinutes', 0, 600)
+        && nullableNum('previousWeight', 0, 2000) && nullableNum('aiSuggestedWeight', 0, 2000)
+        && nullableStr('aiRecommendationId', 40) && str('notes', 0, 1000)
+        && optTimestamp('createdAt') && optTimestamp('updatedAt');
+    }
+
+    function isValidSet() {
+      return hasOnly(['setNumber','weight','reps','completed','createdAt'])
+        && hasAll(['setNumber','weight','reps','completed','createdAt'])
+        && num('setNumber', 1, 20) && num('weight', 0, 2000) && num('reps', 0, 200)
+        && bool('completed') && request.resource.data.createdAt is timestamp;
+    }
+
+    function isValidExerciseStat() {
+      return hasOnly(['lastWeight','lastReps','lastDifficulty','highestWeight','totalSessions',
+        'lastWorkoutDate','updatedAt'])
+        && num('lastWeight', 0, 2000) && num('highestWeight', 0, 2000)
+        && num('totalSessions', 0, 100000)
+        && isList('lastReps', 20)
+        && (request.resource.data.lastDifficulty == null
+          || request.resource.data.lastDifficulty in ['easy','good','hard'])
+        && dateStr('lastWorkoutDate') && request.resource.data.updatedAt is timestamp;
+    }
+
+    function isValidRecommendation() {
+      return hasOnly(['exerciseKey','date','previousWeight','suggestedWeight','reason','accepted',
+        'finalWeightChosen','model','promptVersion','contextFacts','blockedBySafety','createdAt'])
+        && hasAll(['exerciseKey','date','suggestedWeight','reason','accepted','blockedBySafety','createdAt'])
+        && str('exerciseKey', 1, 60) && dateStr('date')
+        && nullableNum('previousWeight', 0, 2000) && num('suggestedWeight', 0, 2000)
+        && str('reason', 1, 2000)
+        && (request.resource.data.accepted == null || bool('accepted'))
+        && nullableNum('finalWeightChosen', 0, 2000)
+        && str('model', 0, 120) && str('promptVersion', 0, 40)
+        && isMap('contextFacts', 60) && bool('blockedBySafety')
+        && request.resource.data.createdAt is timestamp;
+    }
+
+    function isValidPersonalRecord() {
+      return hasOnly(['exerciseKey','weight','reps','sessionId','achievedAt'])
+        && str('exerciseKey', 1, 60) && num('weight', 0, 2000) && num('reps', 0, 200)
+        && str('sessionId', 1, 40) && request.resource.data.achievedAt is timestamp;
+    }
+
+    // ---------- paths ----------
+    match /users/{uid} {
+      allow read: if owns(uid);
+      allow create, update: if owns(uid) && isValidProfile();
+
+      match /settings/{doc} {
+        allow read: if owns(uid);
+        allow create, update: if owns(uid) && isValidProfile();
+      }
+      match /workoutTemplates/{id} {
+        allow read: if owns(uid);
+        allow create, update: if owns(uid) && isValidTemplate();
+      }
+      match /exerciseStats/{key} {
+        // derived cache: owner-rebuilt, never a source of truth
+        allow read: if owns(uid);
+        allow create, update: if owns(uid) && isValidExerciseStat();
+      }
+      match /personalRecords/{id} {
+        // append-only history (AGENTS.md rule 10): create + read, never edit
+        allow read: if owns(uid);
+        allow create: if owns(uid) && isValidPersonalRecord();
+      }
+      match /aiRecommendations/{id} {
+        // audit trail: owner creates; later updates may only record the decision
+        allow read: if owns(uid);
+        allow create: if owns(uid) && isValidRecommendation();
+        allow update: if owns(uid)
+          && isValidRecommendation()
+          && unchanged(['exerciseKey','date','previousWeight','suggestedWeight','reason',
+            'model','promptVersion','contextFacts','blockedBySafety','createdAt']);
+      }
+      match /weeklyReports/{id} {
+        // written by the Sunday report function (admin SDK bypasses rules)
+        allow read: if owns(uid);
+        allow write: if false;
+      }
+      match /workoutSessions/{sid} {
+        allow read: if owns(uid);
+        allow create: if owns(uid)
+          && request.resource.data.id == sid && isValidSession();
+        allow update: if owns(uid)
+          && request.resource.data.id == sid && isValidSession()
+          && unchanged(['id','userId','createdAt'])
+          && (request.method == 'update'
+            && !request.resource.data.diff(resource.data).affectedKeys().hasAny(['status'])
+            || validSessionTransition());
+
+        match /exercises/{eid} {
+          allow read: if owns(uid);
+          allow create, update: if owns(uid) && isValidExercise()
+            && (request.method == 'create' || unchanged(['createdAt']));
+          match /sets/{setId} {
+            allow read: if owns(uid);
+            allow create: if owns(uid) && isValidSet();
+            allow update: if owns(uid) && isValidSet() && unchanged(['setNumber','createdAt']);
+          }
+        }
+      }
+    }
+
+    // default deny, catch-all last
+    match /{allPaths=**} { allow read, write: if false; }
+  }
+}

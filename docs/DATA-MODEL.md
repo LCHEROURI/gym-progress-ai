@@ -193,10 +193,16 @@ service cloud.firestore {
     match /{**} { allow read, write: if false; }   // default deny, catch-all last
   }
 }
-```
+```(Exact validation of field shapes and enums lands with Phase 4 alongside its tests.)
 
-(Exact validation of field shapes and enums lands with Phase 4 alongside its
-tests.)
+Amendment 2026-09-23 (declared here first per the schema-change policy): the
+AI-Logic transport decision made the V1 coach client-side, so three collections
+change from server-only writes to owner writes with full validation —
+`aiRecommendations` becomes owner create + decision-only update (`accepted`,
+`finalWeightChosen`; all provenance fields immutable), `personalRecords` becomes
+append-only create (never edit — AGENTS.md rule 10), and `exerciseStats` becomes
+owner-writable as the rebuildable cache it already is. `weeklyReports` stays
+server-only (Sunday function).
 
 ## Schema-change policy
 
