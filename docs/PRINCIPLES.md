@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Refactor copy-locked text into verbatim slices with a derived join
+
+**Experience:** Replacing the install sheet's text-only steps with an illustrated diagram meant splitting one sentence across step captions — but the wording is copy-locked: `hintText()` required "Add to Home Screen", "Web App", "then Add" (+ Safari's "Edit Actions") in one element's text, per-language labels were pinned, and `getByText` uniqueness demanded each phrase appear exactly once in the DOM. Solution: split the 20 sentences (4 languages × 5 browsers) into verbatim slices (`share`/`home`/`add`/`note`) and keep `steps` DERIVED by joining them — every existing i18n assertion (including the locked label quotes) passed untouched, the sentence can never drift from the captions (single source), and only one query helper (`hintText()`) was re-pointed at the steps container with all assertion strings byte-identical. The SVG mockups stay label-free so the phrases remain unique.
+
+**Reflection:** When copy must be restructured under a lock, the lock lives in the assertion strings, not in the element layout. A derived aggregate keeps every consumer and test on the old surface while the presentation splits — and decorative figures must not repeat copy that tests count.
+
+**Distilled Principle:** To restructure test-locked copy: slice verbatim, derive the original aggregate from the slices (zero drift, old surface intact), re-point query helpers rather than assertion strings, and keep illustrated labels out of the DOM when tests count phrase occurrences.
+
+**Next Experiment:** Candidate: apply to any future copy restructure (e.g. per-step onboarding translations) and assert phrase uniqueness with `getAllByText(...)` counts.
+
+**Confidence:** Medium (one clean refactor, all locked tests green on the first run)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** No — the derived join is the automation.
+
 ## 2026-09-24 · Journey tests: fake only the clock, wait for the destination screen's marker
 
 **Experience:** The one-tap pre-fill journey test (tap NEXT → START WORKOUT → prefilled weight input) needed a Monday template while `WorkoutFlow` renders for the real date, so time was faked with `vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime(...)` — faking ONLY the clock leaves testing-library's real-timer `waitFor`/`findBy` untouched. The first run then failed for a subtler reason: `findAllByRole("listitem")` resolved against the OLD screen's plan cards (both screens render listitems) in the instant before the workout screen replaced them. Fixed by awaiting a marker unique to the destination (`findByRole "FINISH WORKOUT"`) before querying within it.
