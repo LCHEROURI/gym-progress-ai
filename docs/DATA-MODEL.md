@@ -204,6 +204,10 @@ append-only create (never edit — AGENTS.md rule 10), and `exerciseStats` becom
 owner-writable as the rebuildable cache it already is. `weeklyReports` stays
 server-only (Sunday function).
 
+Amendment 2 (2026-09-24): `weeklyReports` becomes owner **create-only**
+(append-only, never edited) so V1 can save reports permanently before the
+Blaze/Functions phase; the Sunday function keeps its admin-SDK write path.
+
 ## Schema-change policy
 
 1. Declare the change here first (AGENTS.md rule 8).

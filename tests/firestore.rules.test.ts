@@ -1,4 +1,4 @@
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, it } from "vitest";
 import { readFileSync } from "node:fs";
 import {
   assertFails,
@@ -99,9 +99,16 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
     await assertFails(db.doc("users/u1/personalRecords/pr1").update({ weight: 999 }));
   });
 
-  it("weeklyReports are server-only", async () => {
-    await assertFails(env.authenticatedContext("u1").firestore()
-      .doc("users/u1/weeklyReports/w1").set({ cardioMinutes: 42 }));
+  it("weeklyReports are append-only (create validated, edit denied)", async () => {
+    const db = env.authenticatedContext("u1").firestore();
+    const report = {
+      weekStart: "2026-09-21", weekEnd: "2026-09-27", planned: 3, completed: 3,
+      completionRate: 1, strengthChanges: [], cardioMinutes: 42, prs: [], missed: [],
+      facts: {}, aiObservations: [], nextWeek: [], createdAt: new Date(0),
+    };
+    await assertSucceeds(db.doc("users/u1/weeklyReports/w1").set(report));
+    await assertFails(db.doc("users/u1/weeklyReports/w1").update({ cardioMinutes: 0 }));
+    await assertFails(db.doc("users/u1/weeklyReports/w2").set({ cardioMinutes: 42 }));
   });
 
   it("exerciseStats cache is owner-writable with validation", async () => {

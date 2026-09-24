@@ -193,6 +193,19 @@ service cloud.firestore {
         && str('sessionId', 1, 40) && request.resource.data.achievedAt is timestamp;
     }
 
+    function isValidWeeklyReport() {
+      return hasOnly(['weekStart','weekEnd','planned','completed','completionRate',
+        'strengthChanges','cardioMinutes','prs','missed','facts','aiObservations',
+        'nextWeek','createdAt'])
+        && dateStr('weekStart') && dateStr('weekEnd')
+        && num('planned', 0, 7) && num('completed', 0, 7) && num('completionRate', 0, 1)
+        && isList('strengthChanges', 40) && isList('prs', 40) && isList('missed', 7)
+        && isList('aiObservations', 10) && isList('nextWeek', 20)
+        && num('cardioMinutes', 0, 10000)
+        && isMap('facts', 60)
+        && request.resource.data.createdAt is timestamp;
+    }
+
     // ---------- paths ----------
     match /users/{uid} {
       allow read: if owns(uid);
@@ -226,9 +239,10 @@ service cloud.firestore {
             'model','promptVersion','contextFacts','blockedBySafety','createdAt']);
       }
       match /weeklyReports/{id} {
-        // written by the Sunday report function (admin SDK bypasses rules)
+        // append-only history (AGENTS.md rule 10): create + read, never edit.
+        // The Sunday function may still write via the admin SDK (bypasses rules).
         allow read: if owns(uid);
-        allow write: if false;
+        allow create: if owns(uid) && isValidWeeklyReport();
       }
       match /workoutSessions/{sid} {
         allow read: if owns(uid);
