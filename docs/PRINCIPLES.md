@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Push reminders: raw SW push, poll + dedupe, device wall clock
+
+**Experience:** FCM workout reminders shipped (`30152b9`). Three decisions worth keeping: (1) the service worker handles `push` **raw** (`event.data.json()` with defensive shapes) instead of `firebase-messaging`'s `onBackgroundMessage` — the SDK would need hardcoded config in a committed file and a second SW at the same scope; raw handling keeps keys/config out of git and the SW dependency-free (pwa test now asserts no `importScripts`/`firebase` in sw.js). (2) Delivery is one `*/5` poller with a 15-minute catch-up window plus a per-token `reminderState` dedupe doc (exactly-once, jitter-proof) instead of per-user Cloud Scheduler jobs — far fewer moving parts at single-user scale. (3) Reminder wall clock comes from each device's saved IANA `timeZone` via `Intl` (DST-correct) — never a fixed offset. Also confirmed live: `Notification.requestPermission()` on a real click **blocks the page's main thread** in the embedded browser until the prompt is answered.
+
+**Reflection:** Platform push APIs push you toward SDK sugar that assumes a build-injected config; the raw web standard underneath is simpler and safer here. Exactly-once delivery is cheaper as "wide window + dedupe guard" than as precision scheduling.
+
+**Distilled Principle:** Prefer the raw web standard over SDK sugar when the sugar forces secrets or config into committed files; achieve exactly-once scheduled delivery with an idempotency guard and generous catch-up windows, not precise schedulers.
+
+**Next Experiment:** Candidate: assert in CI that no Firebase config values appear in `public/` files; revisit per-user Cloud Scheduler jobs only if multi-device users report uneven delivery.
+
+**Confidence:** Medium (three converging decisions, one session)
+
+**Scope:** Project
+
+**Automation Opportunity:** Yes — secret-scan gate for `public/`.
+
 ## 2026-09-24 · Pin behavior in render tests when auth gates the dev origin
 
 **Experience:** The dev-only `?screen=` deep link shipped with its production half provable live (`?screen=settings` on web.app lands on TODAY — compiled out) but its dev half unprovable in the browser: (1) a `&`-backgrounded vite dev server died silently when the command shell exited — fixed by daemonizing with a python double-fork + `os.setsid()`; (2) Google sign-in on `localhost` is blocked by Firebase Auth Authorized Domains (`auth/unauthorized-domain`, caught by the app's own error copy). Replaced the blocked live check with a permanent jsdom render test (`src/screens/WorkoutFlow.test.tsx`): opens the screen by URL, syncs the URL on navigate, falls back on unknown values.
