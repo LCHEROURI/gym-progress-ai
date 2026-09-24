@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useAuthSession } from "../auth/useAuthSession";
+import IosNudgeBanner from "../install/IosNudgeBanner";
 
 export default function LoginPage() {
   const { signIn } = useAuthSession();
@@ -18,6 +19,7 @@ export default function LoginPage() {
 
   return (
     <section>
+      <IosNudgeBanner />
       {message && <p role="alert">{message}</p>}
       <button type="button" onClick={onClick} disabled={busy}>
         {busy ? "Signing in…" : "Continue with Google"}

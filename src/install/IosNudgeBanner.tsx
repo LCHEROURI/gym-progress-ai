@@ -26,8 +26,9 @@ function markDismissed(): void {
 }
 
 /**
- * One-time install nudge on the TODAY screen for iOS visitors (every iOS
- * browser installs manually through a Share menu), in the device's language.
+ * One-time install nudge on the TODAY screen and the sign-in screen for iOS
+ * visitors (every iOS browser installs manually through a Share menu), in the
+ * device's language. Shares one dismissal flag across both surfaces.
  * Hidden off iOS, once installed, and after dismissal. Tapping the text opens
  * the full per-browser steps in a sheet (they also live in Settings).
  */
