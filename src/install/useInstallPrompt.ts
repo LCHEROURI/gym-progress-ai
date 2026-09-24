@@ -15,7 +15,7 @@ export function isStandalone(): boolean {
 }
 
 /** iOS Safari Home Screen mode (apple-mobile-web-app-capable). */
-function isAppleStandalone(): boolean {
+export function isAppleStandalone(): boolean {
   return (navigator as Navigator & { standalone?: boolean }).standalone === true;
 }
 

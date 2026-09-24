@@ -20,7 +20,9 @@ export default function IosInstallHint() {
   return (
     <p className="tip">
       In Safari, tap the Share button, then &ldquo;Add to Home Screen&rdquo;,
-      then Add. The app opens full screen from your Home Screen.
+      then Add &mdash; choose &ldquo;Web App&rdquo; if asked. Don&rsquo;t see the
+      option? Scroll to Edit Actions and add it. The app opens full screen from
+      your Home Screen.
     </p>
   );
 }

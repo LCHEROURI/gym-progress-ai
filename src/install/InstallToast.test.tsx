@@ -1,10 +1,14 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
 import { act, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import InstallToast from "./InstallToast";
 
-afterEach(() => vi.useRealTimers());
+beforeEach(() => localStorage.clear());
+afterEach(() => {
+  vi.useRealTimers();
+  vi.unstubAllGlobals();
+});
 
 describe("InstallToast", () => {
   it("stays hidden until the app is installed", () => {
@@ -24,6 +28,19 @@ describe("InstallToast", () => {
     act(() => {
       vi.advanceTimersByTime(6000);
     });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
+  it("thanks once on the first Home Screen launch (manual iOS install)", () => {
+    // iOS Safari never fires `appinstalled`; installed is detected instead.
+    vi.stubGlobal("matchMedia", () => ({ matches: true }));
+    const { unmount } = render(<InstallToast />);
+    expect(screen.getByRole("status")).toHaveTextContent(
+      /Thanks for installing Gym Progress AI!/,
+    );
+    unmount();
+    vi.unstubAllGlobals();
+    render(<InstallToast />);
     expect(screen.queryByRole("status")).toBeNull();
   });
 
