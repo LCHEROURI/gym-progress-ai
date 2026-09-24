@@ -2,6 +2,22 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-24 · Journey tests: fake only the clock, wait for the destination screen's marker
+
+**Experience:** The one-tap pre-fill journey test (tap NEXT → START WORKOUT → prefilled weight input) needed a Monday template while `WorkoutFlow` renders for the real date, so time was faked with `vi.useFakeTimers({ toFake: ["Date"] })` + `vi.setSystemTime(...)` — faking ONLY the clock leaves testing-library's real-timer `waitFor`/`findBy` untouched. The first run then failed for a subtler reason: `findAllByRole("listitem")` resolved against the OLD screen's plan cards (both screens render listitems) in the instant before the workout screen replaced them. Fixed by awaiting a marker unique to the destination (`findByRole "FINISH WORKOUT"`) before querying within it.
+
+**Reflection:** Two recurring journey-test traps: full fake timers silently break async test helpers, and role queries happily resolve against the screen you just navigated away from. An element query is not a screen-transition barrier — only a destination-unique marker is.
+
+**Distilled Principle:** When a test depends on wall-clock state (weekday templates), fake only `Date` (`toFake: ["Date"]`); when consecutive screens share roles, wait for a marker unique to the destination screen before asserting within it.
+
+**Next Experiment:** Candidate TESTING.md note: journey tests assert a destination marker first; weekday-templated tests use `toFake: ["Date"]` instead of full fake timers.
+
+**Confidence:** Medium (both traps hit and fixed in one session, one clean red→green)
+
+**Scope:** Project (candidate Universal)
+
+**Automation Opportunity:** No — the journey test is the automation.
+
 ## 2026-09-24 · Layout gates must assert tap-target size, not only overflow
 
 **Experience:** The full 9-screen iPhone pass (390×844) found the workout screen's AI decision buttons (USE / KEEP / CHOOSE ANOTHER) at **22px tall** — half a finger, un-tappable in practice — while `npm run test:layout` was 20/20 green. The Playwright smoke asserts horizontal overflow (`scrollWidth > clientWidth`) and nothing else, so a screen full of sub-44px controls passes. The same pass found dual data states (error + "Loading…" together) and a ~1.5:1 disabled-button contrast — none of which any gate measures. Filed in `docs/VISUAL-FINDINGS.md`.
