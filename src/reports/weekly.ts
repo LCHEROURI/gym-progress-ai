@@ -32,6 +32,11 @@ export const weeklyReportSchema = z
 
 export type WeeklyReport = z.infer<typeof weeklyReportSchema>;
 
+/** One report per week, deterministic id — append-only storage. */
+export function reportIdFor(weekStart: string): string {
+  return `w${weekStart}`;
+}
+
 const kindByKey = new Map(
   TEMPLATES.flatMap((t) => t.exercises).map((e) => [e.key, e.kind]),
 );

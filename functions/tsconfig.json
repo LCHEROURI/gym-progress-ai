@@ -1,0 +1,23 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "lib": ["ES2022"],
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "outDir": "lib",
+    "rootDir": ".."
+  },
+  "include": [
+    "src",
+    "../src/domain/templates.ts",
+    "../src/domain/session.ts",
+    "../src/progress/stats.ts",
+    "../src/reports/weekly.ts",
+    "../src/reports/observations-core.ts",
+    "../src/ai/prompts/weekly-observations.ts"
+  ]
+}
