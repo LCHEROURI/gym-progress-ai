@@ -37,18 +37,51 @@ for (const screen of SMOKE_SCREENS) {
   });
 }
 
-// Chat bubbles only exist mid-conversation — ask (no model call: the
-// deterministic insufficient-history path answers) and check with real bubbles.
-test("coach: chat bubbles stay inside the viewport", async ({ page }) => {
+// The smoke fixture has no real Firestore connection: verify the history error
+// is honest and the submitted user message remains within the viewport.
+test("coach: history error and submitted message stay inside the viewport", async ({ page }) => {
   await page.goto(`/smoke.html?screen=coach`);
   await page.waitForSelector("body[data-smoke-ready='1']");
   await page
     .getByRole("textbox", { name: "Ask the coach" })
     .fill("How many workouts did I complete this month?");
   await page.getByRole("button", { name: "SEND" }).click();
-  // apostrophe-agnostic: the code's copy uses a straight apostrophe
-  await page.getByText(/enough workout history yet/).waitFor();
+  await expect(page.getByText("Could not load your workout history. Check your connection and retry.")).toBeVisible();
+  await expect(
+    page.getByRole("log", { name: "Conversation" }).getByText("How many workouts did I complete this month?"),
+  ).toBeVisible();
   const report = await overflowReport(page);
   expect(report.wide, "elements painted past the viewport").toEqual([]);
   expect(report.scrollWidth).toBeLessThanOrEqual(report.clientWidth);
+});
+
+test("signed-out home keeps the training-sheet landing inside the viewport", async ({ page }) => {
+  await page.goto("/");
+  const landing = page.getByRole("region", { name: "Sign in" });
+  await expect(landing).toBeVisible();
+  await expect(landing.getByRole("heading", { name: "A steadier way to get stronger." })).toBeVisible();
+  await expect(landing.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  await expect(page.getByRole("complementary", { name: "Today's workout preview" })).toBeVisible();
+
+  const layout = await page.evaluate(() => {
+    const headline = document.querySelector<HTMLElement>(".landingHeadline");
+    const sheet = document.querySelector<HTMLElement>(".trainingSheet");
+    if (!headline || !sheet) throw new Error("Landing content did not render");
+    const headlineRect = headline.getBoundingClientRect();
+    const sheetRect = sheet.getBoundingClientRect();
+    const root = document.documentElement;
+    return {
+      viewportWidth: window.innerWidth,
+      documentWidth: root.scrollWidth,
+      clientWidth: root.clientWidth,
+      headlineRight: headlineRect.right,
+      sheetLeft: sheetRect.left,
+      sheetRight: sheetRect.right,
+    };
+  });
+
+  expect(layout.documentWidth).toBeLessThanOrEqual(layout.clientWidth);
+  expect(layout.headlineRight).toBeLessThanOrEqual(layout.viewportWidth + 1);
+  expect(layout.sheetLeft).toBeGreaterThanOrEqual(-1);
+  expect(layout.sheetRight).toBeLessThanOrEqual(layout.viewportWidth + 1);
 });

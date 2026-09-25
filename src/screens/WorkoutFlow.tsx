@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import type { Firestore } from "firebase/firestore";
-import { initFirebase } from "../data/firebase";
+import { initFirebase, type FirebaseServices } from "../data/firebase";
 import { fetchProfile, saveProfile, type Profile } from "../data/settings";
 import { useSyncStatus } from "../data/useSyncStatus";
 import { fetchHistory, type HistoryRow } from "../data/history";
@@ -28,6 +28,35 @@ import TodayScreen from "./TodayScreen";
 import WorkoutScreen from "./WorkoutScreen";
 
 export default function WorkoutFlow({ uid }: { uid: string }) {
+  const [services, setServices] = useState<FirebaseServices | null>(null);
+  const [firebaseError, setFirebaseError] = useState<string | null>(null);
+
+  useInstallAnalytics(services, uid);
+
+  useEffect(() => {
+    let cancelled = false;
+    void initFirebase(parseEnv(import.meta.env))
+      .then((value) => {
+        if (!cancelled) setServices(value);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setFirebaseError("Could not connect to your workout data. Check your connection and try again.");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  if (!services) {
+    return <p role={firebaseError ? "alert" : undefined}>{firebaseError ?? "Loading…"}</p>;
+  }
+  return <LoadedWorkoutFlow uid={uid} services={services} />;
+}
+
+function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseServices }) {
+  const { app, db } = services;
   const [today] = useState(() => new Date());
   // Dev-only ?screen= deep link so screens can be opened and tested by URL.
   const [view, setView] = useState<NavView>(
@@ -44,9 +73,7 @@ export default function WorkoutFlow({ uid }: { uid: string }) {
   // START A WORKOUT TODAY takes over the day until the session is done.
   const [offPlan, setOffPlan] = useState<WorkoutTemplate | null>(null);
   const template = templateForWeekday(today.getDay()) ?? offPlan;
-  const { app, db } = initFirebase(parseEnv(import.meta.env));
   const syncState = useSyncStatus(db, null);
-  useInstallAnalytics(db, uid);
 
   useEffect(() => {
     let cancelled = false;
@@ -273,6 +300,21 @@ function ActiveFlow(props: {
         {celebration && <StreakToast celebration={celebration} />}
         <BottomNav view={props.view} onNavigate={props.onNavigate} />
       </>
+    );
+  }
+
+  if (flow.phase === "restoring") {
+    return (
+      <section aria-label="Workout recovery">
+        <p role={flow.error ? "alert" : "status"}>
+          {flow.error ?? "Checking for an unfinished workout…"}
+        </p>
+        {flow.error && (
+          <button type="button" onClick={() => void flow.retryRestore()}>
+            Retry
+          </button>
+        )}
+      </section>
     );
   }
 

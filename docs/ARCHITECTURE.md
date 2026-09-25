@@ -11,12 +11,12 @@ workout history and API credentials never reach the browser).
 flowchart TB
     subgraph Client["PWA client — Vite + React + TS"]
         UI["TODAY · HISTORY · PROGRESS · AI COACH · REPORTS + gear"]
-        Store["Workout session store (reducer + context)"]
-        Mirror["localStorage in-flight mirror"]
-        UI --> Store --> Mirror
-    end        subgraph FB["Firebase project: gym-progress-ai-lcherouri"]
+        State["Screen state + workout session lifecycle"]
+        UI --> State
+    end
+    subgraph FB["Firebase project: gym-progress-ai-lcherouri"]
         Auth["Firebase Auth — Google sign-in"]
-        FS[("Firestore — offline persistence")]
+        FS[("Firestore — persistent offline cache")]
         Rules["Security rules: default deny, own uid"]
         AC["App Check — enforced on AI callables"]
     end
@@ -34,9 +34,9 @@ flowchart TB
         CB --> Prompts
     end
 
-    Store <-->|Auth session| Auth
-    Store <-->|reads + writes, autosave| FS
-    Store -->|HTTPS callable + App Check| SW
+    State <-->|Auth session| Auth
+    State <-->|reads + write-through autosave| FS
+    State -->|HTTPS callable + App Check| SW
     UI -->|chat| CA
     WR -->|writes weeklyReports| FS
     Secrets["Secret Manager: GEMINI_API_KEY"] --> Server
@@ -46,11 +46,12 @@ flowchart TB
 
 1. **Presentation** (`src/screens/`) — one screen per nav tab; large-print
    components in `src/components/`; controlled inputs only.
-2. **State** (`src/store/`) — workout session store (reducer + context):
-   current session draft, per-exercise working values, sync status.
+2. **State** (`src/workout/`, screen hooks) — focused hooks own screen state,
+   workout lifecycle, and sync status. Persistent workout state is stored in
+   Firestore rather than a separate reducer/context store.
 3. **Data** (`src/data/`) — Firestore repositories per collection, Zod-validated
-   on write; offline persistence enabled; previous-weight lookup via
-   `exerciseStats` rollups with a bounded history fallback.
+   on writes; persistent offline cache and write-through autosave; previous-
+   weight lookup via `exerciseStats` rollups with history fallback.
 4. **Server** (`functions/src/`) — Genkit flows, deterministic calculators,
    context builders, prompt modules. Admin SDK only here.
 
@@ -58,14 +59,18 @@ Client and server share only Zod schemas and pure types (`src/shared/`).
 
 ## Data flow: logging a set
 
-1. User taps reps/weight → store updates → optimistic render.
-2. Repository write-through to Firestore (Zod-validated). Firestore SDK queues
-   it offline if needed; the chip shows SYNCING → SAVED (or OFFLINE).
-3. The same payload lands in the localStorage in-flight mirror so a hard crash
-   recovers on reopen.
-4. On session completion, deterministic code recomputes `exerciseStats` and
-   `personalRecords` from the session (derived caches — sessions stay the
-   source of truth).
+1. A workout starts by atomically writing an `in_progress` session and its
+   exercise documents in one Firestore batch.
+2. User changes a weight, note, symptom, or set → the screen updates and the
+   repository writes the validated value through to Firestore immediately.
+3. Firestore's persistent local cache queues writes offline and syncs them when
+   connectivity returns; the chip shows SYNCING → SAVED (or OFFLINE).
+4. On workout-area entry, recovery queries for an unfinished session and loads
+   its exercises and sets before showing the plan. If the recovery check fails,
+   starting a duplicate workout is blocked until the user retries.
+5. On session completion, deterministic code recomputes `exerciseStats` and
+   `personalRecords` from history (derived caches — sessions stay the source
+   of truth).
 
 ## AI context pipeline (all flows)
 
@@ -105,10 +110,16 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 
 ## Offline and recovery model
 
-- Firestore offline persistence is the sync source of truth.
-- localStorage mirrors in-flight session edits (keyed `gpa:draft:<sessionId>`)
-  for crash recovery; drafts rehydrate on load and reconcile with the server
-  copy (server wins on completed fields, local wins on newer timestamps).
+- Firestore's persistent local cache is the durable source for workout sessions,
+  exercises, and sets. Repository writes are immediate; offline writes remain
+  queued in the SDK cache for synchronization when the network returns.
+- The session and its exercise drafts are committed atomically with status
+  `in_progress`; the UI does not expose a partially created workout.
+- On workout-area entry, the session hook finds and rehydrates the latest
+  in-progress session, including exercise values and saved sets, before offering
+  a new plan. A failed recovery check blocks a new start until retry succeeds.
+- Refresh recovery uses Firestore's local cache and normal Firestore
+  synchronization. There is no separate localStorage workout mirror.
 - The SAVED / SYNCING / OFFLINE chip derives from connection state + pending
   write count.
 

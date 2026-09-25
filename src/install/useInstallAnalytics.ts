@@ -1,5 +1,5 @@
 import { useEffect } from "react";
-import type { Firestore } from "firebase/firestore";
+import type { FirebaseServices } from "../data/firebase";
 import {
   recordInstallEvent,
   type InstallEventInput,
@@ -26,10 +26,11 @@ function claimFirstInstallRecord(): boolean {
  * to Firestore for observability. Append-only and fire-and-forget: failures are
  * swallowed and never touch the install flow.
  */
-export function useInstallAnalytics(db: Firestore, uid: string): void {
+export function useInstallAnalytics(services: FirebaseServices | null, uid: string): void {
   useEffect(() => {
+    if (!services) return;
     const record = (input: InstallEventInput) => {
-      void recordInstallEvent({ db }, uid, input).catch(() => undefined);
+      void recordInstallEvent({ db: services.db }, uid, input).catch(() => undefined);
     };
     bindInstallEventRecorder(record);
     const onPrompt = () => record({ type: "prompt_offered" });
@@ -49,5 +50,5 @@ export function useInstallAnalytics(db: Firestore, uid: string): void {
       window.removeEventListener("beforeinstallprompt", onPrompt);
       window.removeEventListener("appinstalled", onInstalled);
     };
-  }, [db, uid]);
+  }, [services, uid]);
 }

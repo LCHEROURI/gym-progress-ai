@@ -1,12 +1,15 @@
+import { lazy, Suspense } from "react";
 import { useAuthSession } from "./auth/useAuthSession";
 import LoginPage from "./screens/LoginPage";
-import WorkoutFlow from "./screens/WorkoutFlow";
 import InstallToast from "./install/InstallToast";
+
+const WorkoutFlow = lazy(() => import("./screens/WorkoutFlow"));
 
 export default function App() {
   const { user, state } = useAuthSession();
+  const signedOut = state === "ready" && !user;
   return (
-    <main>
+    <main className={signedOut ? "landingShell" : undefined}>
       <header className="appBar">
         <svg
           viewBox="0 0 24 24"
@@ -23,7 +26,11 @@ export default function App() {
       </header>
       {state === "loading" && <p>Loading…</p>}
       {state === "ready" && !user && <LoginPage />}
-      {state === "ready" && user && <WorkoutFlow uid={user.uid} />}
+      {state === "ready" && user && (
+        <Suspense fallback={<p>Loading your workout…</p>}>
+          <WorkoutFlow uid={user.uid} />
+        </Suspense>
+      )}
       <InstallToast />
     </main>
   );

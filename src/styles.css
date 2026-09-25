@@ -735,3 +735,406 @@ button:disabled,
   border-color: #e6e9ee;
   color: #3d4551;
 }
+
+/* Signed-out landing: a calm training sheet, not a generic fitness dashboard. */
+main.landingShell {
+  --landing-bg: #f3f6f4;
+  --landing-ink: #18211c;
+  --landing-green: #176b45;
+  --landing-mist: #dce8e0;
+  --landing-blue: #0b57a4;
+  width: 100%;
+  max-width: none;
+  min-height: 100svh;
+  padding: 0 clamp(20px, 6vw, 88px) 28px;
+  overflow-x: clip;
+  background: var(--landing-bg);
+  color: var(--landing-ink);
+}
+
+main.landingShell > .appBar {
+  display: none;
+}
+
+.landingPage {
+  position: relative;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(340px, 0.82fr);
+  align-items: center;
+  gap: clamp(44px, 8vw, 120px);
+  width: min(100%, 1160px);
+  min-height: calc(100svh - 28px);
+  margin: 0 auto;
+  padding: 52px 0 92px;
+}
+
+.landingIntro {
+  max-width: 540px;
+  animation: landing-arrive 420ms ease-out both;
+}
+
+.landingIntro .nudgeBanner {
+  margin: 0 0 34px;
+}
+
+.landingKicker,
+.sheetDate,
+.sheetBrand,
+.sheetLive,
+.sheetFooter,
+.landingPrivacy {
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+}
+
+.landingKicker {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 0 0 22px;
+  color: var(--landing-green);
+}
+
+.landingKicker > span {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--landing-green);
+  box-shadow: 0 0 0 4px var(--landing-mist);
+}
+
+.landingHeadline {
+  margin: 0;
+  color: var(--landing-ink);
+  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-size: clamp(50px, 6.6vw, 82px);
+  font-stretch: condensed;
+  font-weight: 750;
+  letter-spacing: -0.055em;
+  line-height: 0.98;
+}
+
+.landingCopy {
+  max-width: 440px;
+  margin: 24px 0 0;
+  color: #536158;
+  font-size: clamp(17px, 1.6vw, 20px);
+  line-height: 1.55;
+}
+
+.landingActions {
+  margin-top: 34px;
+}
+
+.landingSignIn {
+  display: grid;
+  grid-template-columns: 24px 1fr 20px;
+  align-items: center;
+  gap: 12px;
+  width: min(100%, 370px);
+  min-height: 60px;
+  padding: 0 18px;
+  border: 1px solid #c8d3cb;
+  border-radius: 12px;
+  background: #fff;
+  color: var(--landing-ink);
+  box-shadow: 0 4px 14px rgb(24 33 28 / 7%);
+  font: 650 16px/1.2 system-ui, sans-serif;
+  text-align: left;
+  cursor: pointer;
+  transition: border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease;
+}
+
+.landingSignIn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  border-color: var(--landing-green);
+  box-shadow: 0 8px 20px rgb(24 33 28 / 11%);
+}
+
+.landingSignIn:focus-visible {
+  outline: 3px solid var(--landing-blue);
+  outline-offset: 3px;
+}
+
+.landingSignIn:disabled {
+  cursor: wait;
+}
+
+.landingSignIn .googleMark {
+  display: block;
+  width: 22px;
+  height: 22px;
+}
+
+.landingArrow {
+  color: var(--landing-green);
+  font-size: 19px;
+  text-align: right;
+}
+
+.landingError {
+  width: min(100%, 370px);
+  margin: 14px 0 0;
+  padding: 12px 14px;
+  border-left: 3px solid var(--red);
+  background: #fdecea;
+  color: #7d1d19;
+  font-size: 16px;
+}
+
+.landingPrivacy {
+  margin: 15px 0 0;
+  color: #69776e;
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+}
+
+.trainingSheet {
+  position: relative;
+  width: min(100%, 490px);
+  justify-self: end;
+  padding: clamp(22px, 3vw, 34px);
+  overflow: hidden;
+  border: 1px solid #d8e1da;
+  border-radius: 6px;
+  background-color: #fff;
+  background-image: linear-gradient(to bottom, transparent 39px, #edf1ed 40px);
+  background-size: 100% 40px;
+  box-shadow: 0 18px 48px rgb(26 54 39 / 10%), 0 2px 8px rgb(26 54 39 / 5%);
+  animation: sheet-arrive 520ms 80ms ease-out both;
+}
+
+.sheetTopline,
+.sheetLive,
+.sheetExerciseList li,
+.sheetFooter {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.sheetTopline {
+  padding-bottom: 18px;
+  border-bottom: 1px solid #d8e1da;
+}
+
+.sheetBrand {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #536158;
+  font-size: 11px;
+}
+
+.sheetBrand > span {
+  display: grid;
+  width: 25px;
+  height: 25px;
+  place-items: center;
+  border-radius: 4px;
+  background: var(--landing-green);
+  color: white;
+  font: 700 14px/1 system-ui, sans-serif;
+}
+
+.sheetLive {
+  gap: 7px;
+  color: var(--landing-green);
+  font-size: 10px;
+}
+
+.sheetLive > span {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--landing-green);
+}
+
+.sheetHeading {
+  padding: 26px 0 20px;
+}
+
+.sheetDate {
+  margin: 0 0 10px;
+  color: #66746b;
+  font-size: 10px;
+}
+
+.sheetHeading h3 {
+  margin: 0;
+  color: var(--landing-ink);
+  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
+  font-size: clamp(29px, 3.2vw, 38px);
+  font-weight: 750;
+  letter-spacing: -0.035em;
+  line-height: 1.05;
+}
+
+.sheetHeading > p:last-child {
+  margin: 7px 0 0;
+  color: #647168;
+  font-size: 14px;
+}
+
+.sheetExerciseList {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  border-top: 1px solid #dce4de;
+}
+
+.sheetExerciseList li {
+  min-height: 56px;
+  gap: 12px;
+  border-bottom: 1px solid #dce4de;
+  font-size: 16px;
+}
+
+.sheetExerciseName {
+  color: var(--landing-ink);
+  font-weight: 600;
+}
+
+.sheetExerciseTarget {
+  flex: 0 0 auto;
+  color: #5e6c63;
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 13px;
+}
+
+.sheetRecovery {
+  display: grid;
+  grid-template-columns: 40px 1fr;
+  align-items: center;
+  gap: 4px 14px;
+  min-height: 126px;
+  border-top: 1px solid #dce4de;
+}
+
+.sheetRecoveryIcon {
+  display: grid;
+  grid-row: span 2;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--landing-mist);
+  color: var(--landing-green);
+  font-size: 22px;
+}
+
+.sheetRecovery p {
+  margin: 0;
+  align-self: end;
+  color: var(--landing-ink);
+  font-weight: 650;
+}
+
+.sheetRecovery > span:last-child {
+  align-self: start;
+  color: #647168;
+  font-size: 14px;
+}
+
+.sheetFooter {
+  gap: 12px;
+  margin-top: 22px;
+  padding-top: 16px;
+  border-top: 1px solid #d8e1da;
+  color: #647168;
+  font-size: 9px;
+}
+
+.landingFootnote {
+  position: absolute;
+  right: 0;
+  bottom: 22px;
+  left: 0;
+  margin: 0;
+  color: #78847c;
+  font-size: 13px;
+  text-align: center;
+}
+
+@keyframes landing-arrive {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes sheet-arrive {
+  from { opacity: 0; transform: translateY(12px) rotate(0.5deg); }
+  to { opacity: 1; transform: translateY(0) rotate(0deg); }
+}
+
+@media (max-width: 760px) {
+  .landingPage {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 38px;
+    width: min(100%, 520px);
+    padding: 36px 0 76px;
+  }
+
+  .landingIntro {
+    max-width: none;
+  }
+
+  .landingHeadline {
+    font-size: clamp(48px, 12vw, 72px);
+  }
+
+  .landingCopy {
+    max-width: 480px;
+    margin-top: 18px;
+  }
+
+  .landingActions {
+    margin-top: 24px;
+  }
+
+  .landingSignIn {
+    width: 100%;
+  }
+
+  .trainingSheet {
+    width: 100%;
+    justify-self: stretch;
+  }
+
+  .landingFootnote {
+    bottom: 20px;
+  }
+}
+
+@media (max-width: 380px) {
+  main.landingShell {
+    padding-right: 18px;
+    padding-left: 18px;
+  }
+
+  .landingPage {
+    padding-top: 26px;
+  }
+
+  .sheetExerciseList li {
+    min-height: 52px;
+    font-size: 15px;
+  }
+
+  .sheetFooter {
+    font-size: 8px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .landingIntro,
+  .trainingSheet {
+    animation: none;
+  }
+
+  .landingSignIn {
+    transition: none;
+  }
+}

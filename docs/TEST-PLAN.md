@@ -27,8 +27,8 @@ environment is node.
 | Saving weight | unit + integration | write-through fires; `exerciseStats.lastWeight` updates on completion |
 | Saving reps | unit | per-set docs written; target ranges validated |
 | Checking exercises off | unit | `completed` flips; progress counter increments |
-| Refresh recovery | jsdom + manual | draft rehydrates from mirror + Firestore; nothing lost |
-| Offline recovery | emulator + manual | queued writes sync; chip OFFLINE → SYNCING → SAVED |
+| Refresh recovery | emulator + manual | persisted in-progress session rehydrates from Firestore with exercises and sets; no duplicate start is offered |
+| Offline recovery | emulator + manual | Firestore local cache retains writes for recovery and syncs when online; chip OFFLINE → SYNCING → SAVED |
 | Previous weight lookup | unit | rollup hit; fallback query rebuilds missing rollup |
 | AI recommendation generation | integration | facts computed in code; Zod-validated output; audit record written |
 | AI recommendation acceptance | unit | `accepted: true`, `finalWeightChosen` recorded |
@@ -45,6 +45,22 @@ environment is node.
 | Authentication | emulator | no anonymous read of workout records |
 | Mobile responsiveness | jsdom viewport + manual | large tap targets, bottom nav, no overflow at 390×844 |
 | Accessibility | axe | nav, cards, steppers, dialogs clean |
+
+## Workout recovery integration (emulator)
+
+`tests/workout-recovery.emulator.test.ts` exercises the production repository
+boundary against the Firestore emulator with the actual security rules loaded:
+
+1. Start a workout and verify the session plus exercise drafts are committed as
+   `in_progress`.
+2. Autosave an exercise and a set, then query recovery as a fresh screen mount
+   would; assert the same session, exercise values, and set are restored.
+3. Run with `FIRESTORE_EMULATOR_HOST` set (the test skips in ordinary unit-test
+   runs without the emulator); invoke it alongside the rules suite using
+   `FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run tests/firestore.rules.test.ts tests/workout-recovery.emulator.test.ts`.
+
+The emulator uses a `demo-*` project id only and clears test data before the
+suite. No production Firebase project or user data is touched.
 
 ## Security rules suite (emulator)
 

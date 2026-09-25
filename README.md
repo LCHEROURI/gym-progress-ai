@@ -57,8 +57,7 @@ See `docs/ARCHITECTURE.md` for the full design and diagrams. Summary:
 6. Enable **App Check** (reCAPTCHA v3 provider) and register the web app.
 7. When the project exists, record it in `apps.yml` (the registry row is added
    only once its facts are real — never invented in advance).
-8. Deploy: `npm run deploy` (Hosting + Functions + Rules + Indexes), on
-   explicit authorization only.
+8. Deploy with `firebase deploy --only hosting,functions,firestore:rules,firestore:indexes --project gym-progress-ai-lcherouri` only after explicit authorization.
 
 ## 4. Gemini setup
 
@@ -80,29 +79,39 @@ Copy `.env.example` to `.env.local` and fill in the web-app config values.
 
 ## 6. Emulator setup
 
+Start the Firestore emulator in one terminal, explicitly using the demo project
+ID so emulator data cannot be confused with production:
+
 ```bash
-npm run emulators          # Auth + Firestore + Functions emulators
-npm run test:emulator      # rules + integration tests against the emulators
+firebase emulators:start --only firestore --project demo-gym-progress-ai
 ```
 
-Emulator development never touches production data. Demo seeds run only under
+In a second terminal, run the Firestore rules and workout-recovery integration
+suites against it:
+
+```bash
+FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 npx vitest run tests/firestore.rules.test.ts tests/workout-recovery.emulator.test.ts --no-file-parallelism
+```
+
+These tests clear Firestore data in the demo emulator project. Do not point
+`FIRESTORE_EMULATOR_HOST` at a production service. Demo seeds run only under
 the emulators or explicit dev flags — never in production.
 
 ## 7. Testing
 
 ```bash
 npm test                   # Vitest units (node + jsdom)
-npm run test:emulator      # Firestore rules + Functions integration
-npm run check              # the full green gate
+npm run check              # typecheck → lint → test → build
 ```
 
-The complete matrix lives in `docs/TEST-PLAN.md`.
+For emulator-backed rules and workout-recovery tests, use the two-terminal
+commands in §6. The complete matrix lives in `docs/TEST-PLAN.md`.
 
 ## 8. Deployment
 
 ```bash
 npm run check              # must be green first
-npm run deploy             # firebase deploy (Hosting, Functions, Rules, Indexes)
+firebase deploy --only hosting,functions,firestore:rules,firestore:indexes --project gym-progress-ai-lcherouri
 ```
 
 Deployment happens only on explicit instruction — never automatically. CI

@@ -5,6 +5,8 @@ import {
   getDocs,
   setDoc,
   updateDoc,
+  where,
+  query,
   writeBatch,
   type Firestore,
 } from "firebase/firestore";
@@ -26,12 +28,38 @@ export interface RepoCtx {
   db: Firestore;
 }
 
+export interface ActiveWorkout {
+  session: WorkoutSession;
+  exercises: ExerciseSession[];
+  sets: Array<WorkoutSet & { exerciseKey: string }>;
+}
+
 const sessionPath = (uid: string, sid: string) =>
   `users/${uid}/workoutSessions/${sid}`;
 const exercisePath = (uid: string, sid: string, exerciseKey: string) =>
   `${sessionPath(uid, sid)}/exercises/${exerciseKey}`;
 const setPath = (uid: string, sid: string, exerciseKey: string, setId: string) =>
   `${exercisePath(uid, sid, exerciseKey)}/sets/${setId}`;
+
+function withDateFields(data: unknown, fields: string[]): unknown {
+  if (!data || typeof data !== "object") return data;
+  const record = data as Record<string, unknown>;
+  const dates = new Set(fields);
+  return Object.fromEntries(
+    Object.entries(record).map(([key, value]) => {
+      if (
+        dates.has(key) &&
+        value !== null &&
+        typeof value === "object" &&
+        "toDate" in value &&
+        typeof value.toDate === "function"
+      ) {
+        return [key, value.toDate()];
+      }
+      return [key, value];
+    }),
+  );
+}
 
 /** Last used weight per exercise key, from the derived stats cache. */
 export async function fetchPreviousWeights(
@@ -59,24 +87,90 @@ export async function startSession(
     template: WorkoutTemplate;
     scheduledDate: string;
     previousWeights: Record<string, number | null>;
+    initialWeights?: Record<string, number>;
+    weightUnit?: "lb" | "kg";
     now?: Date;
   },
-): Promise<WorkoutSession> {
-  const session = buildSession(input);
-  const batch = writeBatch(ctx.db);
-  batch.set(doc(ctx.db, sessionPath(input.uid, session.id)), session);
-  for (const t of input.template.exercises) {
-    const ex = buildExerciseSession({
+): Promise<{ session: WorkoutSession; exercises: ExerciseSession[] }> {
+  const now = input.now ?? new Date();
+  const draft = buildSession({ ...input, now });
+  const session = workoutSessionSchema.parse({
+    ...draft,
+    status: "in_progress",
+    startedAt: now,
+  });
+  const exercises = input.template.exercises.map((t) =>
+    buildExerciseSession({
       template: input.template,
       order: t.order,
       previousWeight: input.previousWeights[t.key] ?? null,
-      weightUnit: "lb",
-      now: input.now,
-    });
-    batch.set(doc(ctx.db, exercisePath(input.uid, session.id, ex.exerciseKey)), ex);
+      initialWeight: input.initialWeights?.[t.key],
+      weightUnit: t.kind === "resistance" ? input.weightUnit ?? "lb" : null,
+      now,
+    }),
+  );
+  const batch = writeBatch(ctx.db);
+  batch.set(doc(ctx.db, sessionPath(input.uid, session.id)), session);
+  for (const exercise of exercises) {
+    batch.set(
+      doc(ctx.db, exercisePath(input.uid, session.id, exercise.exerciseKey)),
+      exercise,
+    );
   }
   await batch.commit();
-  return session;
+  return { session, exercises };
+}
+
+/**
+ * Finds the newest unfinished workout and restores its persisted exercise/set
+ * state. Firestore's offline cache is the recovery source of truth.
+ */
+export async function fetchActiveWorkout(
+  ctx: RepoCtx,
+  uid: string,
+): Promise<ActiveWorkout | null> {
+  const snap = await getDocs(
+    query(
+      collection(ctx.db, `users/${uid}/workoutSessions`),
+      where("status", "==", "in_progress"),
+    ),
+  );
+  const candidates = snap.docs
+    .map((docSnap) =>
+      workoutSessionSchema.parse(
+        withDateFields(docSnap.data(), ["startedAt", "completedAt", "createdAt", "updatedAt"]),
+      ),
+    )
+    .sort((a, b) =>
+      b.scheduledDate.localeCompare(a.scheduledDate) ||
+      b.updatedAt.getTime() - a.updatedAt.getTime(),
+    );
+  const session = candidates[0];
+  if (!session) return null;
+
+  const exerciseSnap = await getDocs(
+    collection(ctx.db, `${sessionPath(uid, session.id)}/exercises`),
+  );
+  const exercises = exerciseSnap.docs.map((docSnap) =>
+    exerciseSessionSchema.parse(
+      withDateFields(docSnap.data(), ["createdAt", "updatedAt"]),
+    ),
+  );
+  const setGroups = await Promise.all(
+    exercises.map(async (exercise) => {
+      const setSnap = await getDocs(
+        collection(
+          ctx.db,
+          `${exercisePath(uid, session.id, exercise.exerciseKey)}/sets`,
+        ),
+      );
+      return setSnap.docs.map((docSnap) => ({
+        ...setSchema.parse(withDateFields(docSnap.data(), ["createdAt"])),
+        exerciseKey: exercise.exerciseKey,
+      }));
+    }),
+  );
+  return { session, exercises, sets: setGroups.flat() };
 }
 
 /**

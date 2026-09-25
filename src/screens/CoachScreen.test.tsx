@@ -23,8 +23,9 @@ beforeEach(() => {
 });
 
 describe("CoachScreen", () => {
-  it("offers the brief's quick questions", () => {
+  it("offers the brief's quick questions", async () => {
     render(<CoachScreen db={{} as never} uid="u1" app={{} as never} />);
+    expect(await screen.findByText("Workout history ready.")).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: "What weight should I use today?" }),
     ).toBeEnabled();
@@ -35,9 +36,10 @@ describe("CoachScreen", () => {
 
   it("asks with a quick question and shows both bubbles", async () => {
     render(<CoachScreen db={{} as never} uid="u1" app={{} as never} />);
+    await screen.findByText("Workout history ready.");
     fireEvent.click(screen.getByRole("button", { name: "How many workouts did I complete this month?" }));
     expect(
-      screen.getAllByText("How many workouts did I complete this month?"),
+      await screen.findAllByText("How many workouts did I complete this month?"),
     ).toHaveLength(2);
     await waitFor(() => {
       expect(mocks.askCoach).toHaveBeenCalledOnce();

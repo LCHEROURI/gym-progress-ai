@@ -6,13 +6,25 @@ import { buildExerciseSession, buildSession } from "../domain/session";
 import { MONDAY } from "../domain/templates";
 
 const mocks = vi.hoisted(() => ({
-  initFirebase: vi.fn(() => ({ app: {} as never, db: {} as never })),
+  initFirebase: vi.fn(async () => ({ app: {} as never, auth: {} as never, db: {} as never })),
   fetchProfile: vi.fn(async () => ({ mocked: true })),
   saveProfile: vi.fn(async () => undefined),
   fetchHistory: vi.fn(async () => []),
   useSyncStatus: vi.fn(() => "saved"),
+  fetchActiveWorkout: vi.fn(async () => null),
   fetchPreviousWeights: vi.fn(async () => ({ "leg-press": 70, "chest-press": 50 })),
-  startSession: vi.fn(async () => ({ id: "sx", status: "not_started" })),
+  startSession: vi.fn(async (_ctx: unknown, input: { template: typeof MONDAY; previousWeights: Record<string, number | null>; initialWeights?: Record<string, number>; weightUnit?: "lb" | "kg" }) => ({
+    session: { id: "sx", status: "in_progress", startedAt: new Date() },
+    exercises: input.template.exercises.map((exercise) =>
+      buildExerciseSession({
+        template: input.template,
+        order: exercise.order,
+        previousWeight: input.previousWeights[exercise.key] ?? null,
+        initialWeight: input.initialWeights?.[exercise.key],
+        weightUnit: exercise.kind === "resistance" ? input.weightUnit ?? "lb" : null,
+      }),
+    ),
+  })),
   saveExercise: vi.fn(
     async (
       _c: unknown,
@@ -42,6 +54,7 @@ vi.mock("../data/history", () => ({
   fetchRecentDetails: mocks.fetchRecentDetails,
 }));
 vi.mock("../data/session-repository", () => ({
+  fetchActiveWorkout: mocks.fetchActiveWorkout,
   fetchPreviousWeights: mocks.fetchPreviousWeights,
   startSession: mocks.startSession,
   saveExercise: mocks.saveExercise,
@@ -63,6 +76,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.fetchProfile.mockResolvedValue(defaultProfile() as never);
   mocks.fetchRecentDetails.mockResolvedValue([]);
+  mocks.fetchActiveWorkout.mockResolvedValue(null);
   window.history.replaceState(null, "", "/");
 });
 
@@ -82,6 +96,7 @@ describe("WorkoutFlow ?screen= deep links (dev)", () => {
     fireEvent.click(screen.getByRole("button", { name: "HISTORY" }));
     expect(window.location.search).toBe("?screen=history");
     expect(screen.getByRole("heading", { name: "HISTORY" })).toBeInTheDocument();
+    expect(await screen.findByText("No workouts yet. Your first one starts today.")).toBeInTheDocument();
   });
 
   it("falls back to today for unknown screens", async () => {

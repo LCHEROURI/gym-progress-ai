@@ -25,7 +25,14 @@ afterEach(() => {
 const db = {} as never;
 
 function useAnalyticsUnderTest() {
-  useInstallAnalytics(db, "u1");
+  useInstallAnalytics({
+    app: {} as never,
+    auth: {} as never,
+    db,
+    observeAuthState: {} as never,
+    signIn: {} as never,
+    signOut: {} as never,
+  }, "u1");
 }
 
 const mount = () => renderHook(useAnalyticsUnderTest);

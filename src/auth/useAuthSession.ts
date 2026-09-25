@@ -1,12 +1,5 @@
 import { useCallback, useEffect, useState } from "react";
-import {
-  GoogleAuthProvider,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut as firebaseSignOut,
-  type User,
-} from "firebase/auth";
-import { initFirebase } from "../data/firebase";
+import { initAuth } from "../data/firebase";
 import { parseEnv } from "../shared/env";
 import { authErrorMessage } from "./errors";
 
@@ -24,32 +17,46 @@ export function useAuthSession(): AuthSession {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    const { auth } = initFirebase(parseEnv(import.meta.env));
-    return onAuthStateChanged(
-      auth,
-      (u: User | null) => {
-        setUser(u ? { uid: u.uid, email: u.email } : null);
-        setState("ready");
-      },
-      () => {
-        setState("error");
-        setError("Could not reach sign-in. Check your connection and try again.");
-      },
-    );
+    let unsubscribe: (() => void) | undefined;
+    let cancelled = false;
+    void initAuth(parseEnv(import.meta.env))
+      .then((authServices) => {
+        if (cancelled) return;
+        unsubscribe = authServices.observeAuthState(
+          (nextUser) => {
+            setUser(nextUser);
+            setState("ready");
+          },
+          () => {
+            setState("error");
+            setError("Could not reach sign-in. Check your connection and try again.");
+          },
+        );
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setState("error");
+          setError("Could not reach sign-in. Check your connection and try again.");
+        }
+      });
+    return () => {
+      cancelled = true;
+      unsubscribe?.();
+    };
   }, []);
 
   const signIn = useCallback(async () => {
-    const { auth } = initFirebase(parseEnv(import.meta.env));
     try {
-      await signInWithPopup(auth, new GoogleAuthProvider());
+      const authServices = await initAuth(parseEnv(import.meta.env));
+      await authServices.signIn();
     } catch (e) {
       throw new Error(authErrorMessage((e as { code?: string }).code));
     }
   }, []);
 
   const signOut = useCallback(async () => {
-    const { auth } = initFirebase(parseEnv(import.meta.env));
-    await firebaseSignOut(auth);
+    const authServices = await initAuth(parseEnv(import.meta.env));
+    await authServices.signOut();
   }, []);
 
   return { user, state, error, signIn, signOut };
