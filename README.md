@@ -122,12 +122,12 @@ npm run check              # must be green first
 npm run deploy             # hosting, functions, rules, indexes
 ```
 
-Deployment happens only on explicit instruction — never automatically. Nothing
-in CI deploys: the only workflow that runs is
-`.github/workflows/bootstrap-check.yml` (a repository verifier).
-`.github/workflows/firebase-hosting-reusable.yml` is the OIDC Hosting deployer
-carried over from the bootstrap template, and **no workflow calls it yet** — a
-caller has to be written before it can deploy anything.
+Hosting deploys from CI on every merge to `main`, gated on `npm run check` and
+followed by a smoke check that asserts the routing invariants from
+`docs/BLANK-SCREEN-RUNBOOK.md` (a deleted chunk must 404). Functions, rules, and
+indexes stay manual via `npm run deploy` — a rules deploy is a security change
+and should not happen unattended. Setup, including the Workload Identity
+Federation this needs, is in `docs/DEPLOY-CI.md`.
 
 ## 9. Environment variables
 
@@ -185,8 +185,10 @@ so the safety constitution exists before any application code. Preserved as-is:
 - `scripts/` — `verify-bootstrap.sh` (CI verifier), `install-bootstrap.sh`,
   `create-repo-from-template.sh`, `configure-firebase-app.sh`.
 - `.github/workflows/bootstrap-check.yml` — runs the verifier on every push/PR
-  to `main`; `.github/workflows/firebase-hosting-reusable.yml` — OIDC-based
-  Hosting deploy workflow, present but not yet called by any workflow.
+  to `main`; `.github/workflows/deploy-hosting.yml` — gates on `npm run check`,
+  calls `firebase-hosting-reusable.yml` to publish Hosting, then smoke-checks
+  the deployed site; `.github/workflows/firebase-hosting-reusable.yml` — the
+  OIDC deployer it calls. Setup: `docs/DEPLOY-CI.md`.
 - `skills/progressive-distillation/SKILL.md` — reflection workflow for
   meaningful failures and discoveries.
 - `apps.yml` — the central app registry lives in the **bootstrap template**

@@ -232,6 +232,12 @@ npm run test:emulator  # rules + recovery integration tests (needs the emulator 
 npm run deploy         # Hosting + Functions + Rules + Indexes (explicit authorization only)
 ```
 
+**CI deploys Hosting only**, on push to `main`, and only after `npm run check`
+is green (`.github/workflows/deploy-hosting.yml`; setup in `docs/DEPLOY-CI.md`).
+Functions, rules, and indexes are never deployed by CI — they need explicit
+authorization, because a rules deploy is a security change. Merge to `main` is
+therefore a production deploy for Hosting: review before merging, not after.
+
 `emulators` and `deploy` shell out to the `firebase` CLI, which is a machine-level
 prerequisite (global `firebase-tools`), not a project dependency. `test:emulator`
 does not start an emulator; it points Vitest at the one `emulators` is already
