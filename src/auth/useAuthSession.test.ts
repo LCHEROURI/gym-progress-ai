@@ -25,10 +25,12 @@ vi.mock("../data/firebase", () => ({
 }));
 vi.mock("../shared/env", () => ({ parseEnv: () => ({}) }));
 
+import { initAuth } from "../data/firebase";
 import { useAuthSession } from "./useAuthSession";
 
 beforeEach(() => {
   authState.current = null;
+  vi.mocked(initAuth).mockClear();
 });
 
 describe("useAuthSession", () => {
@@ -47,6 +49,21 @@ describe("useAuthSession", () => {
     act(() => authState.current?.(null));
     await waitFor(() => expect(result.current.state).toBe("ready"));
     expect(result.current.user).toBeNull();
+  });
+
+  it("retries auth initialization after a temporary failure", async () => {
+    vi.mocked(initAuth).mockRejectedValueOnce(new Error("offline"));
+    const { result } = renderHook(() => useAuthSession());
+
+    await waitFor(() => expect(result.current.state).toBe("error"));
+    expect(result.current.error).toMatch(/Check your connection/);
+
+    act(() => result.current.retry());
+    await waitFor(() => expect(authState.current).toBeTypeOf("function"));
+    act(() => authState.current?.(null));
+
+    await waitFor(() => expect(result.current.state).toBe("ready"));
+    expect(initAuth).toHaveBeenCalledTimes(2);
   });
 
   it("signIn surfaces mapped copy on auth/popup-closed-by-user", async () => {

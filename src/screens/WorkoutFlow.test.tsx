@@ -3,7 +3,7 @@ import "@testing-library/jest-dom/vitest";
 import { fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildExerciseSession, buildSession } from "../domain/session";
-import { MONDAY } from "../domain/templates";
+import { FRIDAY, MONDAY } from "../domain/templates";
 
 const mocks = vi.hoisted(() => ({
   initFirebase: vi.fn(async () => ({ app: {} as never, auth: {} as never, db: {} as never })),
@@ -95,7 +95,7 @@ describe("WorkoutFlow ?screen= deep links (dev)", () => {
     await screen.findByRole("heading", { name: "SETTINGS" });
     fireEvent.click(screen.getByRole("button", { name: "HISTORY" }));
     expect(window.location.search).toBe("?screen=history");
-    expect(screen.getByRole("heading", { name: "HISTORY" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "History" })).toBeInTheDocument();
     expect(await screen.findByText("No workouts yet. Your first one starts today.")).toBeInTheDocument();
   });
 
@@ -173,12 +173,54 @@ describe("one-tap weight pre-fill (tap NEXT → start → prefilled)", () => {
           (c) => c.querySelector(".exerciseName")?.textContent === name,
         )!;
       expect(
-        within(byName("Leg Press")).getByLabelText("Today's weight in pounds"),
+        within(byName("Leg Press")).getByLabelText("Today's weight in lb"),
       ).toHaveValue(75);
       // Un-picked exercises keep the LAST weight — nothing else changes.
       expect(
-        within(byName("Chest Press")).getByLabelText("Today's weight in pounds"),
+        within(byName("Chest Press")).getByLabelText("Today's weight in lb"),
       ).toHaveValue(50);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});
+
+describe("cross-day workout recovery", () => {
+  it("renders a recovered workout using its saved template, not today's template", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-28T09:00:00")); // Monday
+    try {
+      const startedAt = new Date("2026-09-25T09:00:00Z");
+      const session = {
+        ...buildSession({
+          sessionId: "friday-session",
+          uid: "u1",
+          template: FRIDAY,
+          scheduledDate: "2026-09-25",
+          now: startedAt,
+        }),
+        status: "in_progress" as const,
+        startedAt,
+      };
+      const exercises = FRIDAY.exercises.map((exercise) =>
+        buildExerciseSession({
+          template: FRIDAY,
+          order: exercise.order,
+          previousWeight: null,
+          weightUnit: exercise.kind === "resistance" ? "lb" : null,
+          now: startedAt,
+        }),
+      );
+      mocks.fetchActiveWorkout.mockResolvedValueOnce({
+        session,
+        exercises,
+        sets: [],
+      } as never);
+
+      render(<WorkoutFlow uid="u1" />);
+
+      expect(await screen.findByRole("heading", { name: "FULL BODY + WALK" })).toBeInTheDocument();
+      expect(screen.getByText("Bike or Treadmill Warm-up")).toBeInTheDocument();
     } finally {
       vi.useRealTimers();
     }

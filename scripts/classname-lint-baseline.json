@@ -1,12 +1,5 @@
 [
-  "src/screens/HistoryScreen.tsx:historyMeta",
-  "src/screens/HistoryScreen.tsx:historyStamp",
-  "src/screens/ProgressScreen.tsx:prCard",
-  "src/screens/ProgressScreen.tsx:prTag",
-  "src/screens/ProgressScreen.tsx:sparkline",
   "src/screens/ReportsScreen.tsx:historyStamp",
-  "src/screens/WorkoutScreen.tsx:syncBadge",
-  "src/screens/WorkoutScreen.tsx:workoutHeader",
   "src/workout/RestTimer.tsx:restButtons",
   "src/workout/RestTimer.tsx:restCount",
   "src/workout/RestTimer.tsx:restOptions",

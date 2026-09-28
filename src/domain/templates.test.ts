@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { templateForId } from "./recovery";
 import { FRIDAY, MONDAY, TEMPLATES, WEDNESDAY, templateForWeekday } from "./templates";
 
 describe("workout templates (printed sheet, verbatim)", () => {
@@ -43,6 +44,11 @@ describe("workout templates (printed sheet, verbatim)", () => {
         expect(e.tip.length).toBeLessThanOrEqual(120);
       });
     }
+  });
+
+  it("templateForId returns the original template for recovered sessions", () => {
+    expect(templateForId(MONDAY.id)).toBe(MONDAY);
+    expect(templateForId("unknown-template")).toBeNull();
   });
 
   it("templateForWeekday maps days and returns null on rest days", () => {

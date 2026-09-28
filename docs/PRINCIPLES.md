@@ -2,6 +2,25 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-28 · Failure states need visible recovery paths
+
+**Experience:** Reviewing an iPhone (Chrome) blank-screen report — blank *after deploys* — found auth initialization already transitioned to an error state, but `App` rendered no content for that state. Render-time failures also had no React error boundary, so a thrown screen/lazy-load error could leave users with no recovery guidance. Added an accessible auth error with retry and a root boundary with a reload action; tests cover both the failure UI and auth retry.
+
+**Reflection:** A state machine can record failure correctly while the UI still appears blank if a state is not rendered. A recovery action must repeat the operation that failed (auth initialization retry) or give the user a safe reload path (render crash); neither catches failures before JavaScript boots. The deploy timing points at the deploy race: open clients lazily importing hashed chunks that the new deploy removed. `docs/BLANK-SCREEN-RUNBOOK.md` documents the audit, the device checklist, and remaining hardening (auto-reload-once, keep-previous-assets, iOS redirect sign-in).
+
+**Distilled Principle:** For every user-visible loading/error state, test both the rendered explanation and the recovery action; use a root React error boundary for render failures, while separately investigating failures that happen before app boot.
+
+**Next Experiment:** Auto-reload-once on chunk-load failure and keeping the previous release's assets; browser-level startup monitoring if a device reproduces a pre-React blank screen.
+
+**Confidence:** Low (one report and one code-path finding; no affected iPhone supplied for reproduction)
+
+**Scope:** Project
+
+**Automation Opportunity:** Done — component and auth-hook tests cover both recovery paths.
+
+---
+
+
 ## 2026-09-24 · A visual pass must not "fix" intentional accessibility defaults
 
 **Experience:** The identity pass (soft cards, icon set, design tokens) nearly shrank the 20px base font — it is exactly what made the app read as "a bunch of text". But `body { font-size: 20px }` is the intentional large-text default (`largeTextEnabled`; `.smallText` opts down to 17px). The pass kept the type scale and changed the STRUCTURE instead: page background + white cards + hairline borders + shadows, a stroke icon set, green active states — "reads as an app" came from hierarchy and chrome, not smaller text. Verified live by computed-style probes (tokens applied, 6 nav SVGs, hairline card borders) after compositor frames went stale twice.

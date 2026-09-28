@@ -1,20 +1,20 @@
 :root {
   color-scheme: light;
   font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
-  --green: #14713d;
-  --green-soft: #e7f1ea;
+  --green: #176b45;
+  --green-soft: #e4eee7;
   --blue: #0b57a4;
   --blue-soft: #e8f0f9;
   --orange: #a85a00;
   --red: #b3261e;
   --red-soft: #fdecea;
-  --ink: #14161a;
-  --muted: #5b6472;
-  --line: #dfe3e8;
+  --ink: #18211c;
+  --muted: #536158;
+  --line: #d8e1da;
   --surface: #ffffff;
-  --bg: #f4f6f8;
+  --bg: #f2f5f2;
   --radius: 14px;
-  --shadow: 0 1px 3px rgba(16, 24, 40, 0.08);
+  --shadow: 0 2px 8px rgb(24 45 32 / 6%);
 }
 
 *,
@@ -32,16 +32,20 @@ body {
 }
 
 main {
-  max-width: 560px;
+  max-width: 600px;
+  min-height: 100dvh;
   margin: 0 auto;
-  padding: 16px 16px 24px;
+  padding: 20px 18px calc(32px + env(safe-area-inset-bottom));
 }
 
 .appBar {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 10px;
-  margin-bottom: 12px;
+  margin-bottom: 20px;
+  padding-bottom: 13px;
+  border-bottom: 1px solid var(--line);
 }
 
 .appBar svg {
@@ -51,9 +55,59 @@ main {
   color: var(--green);
 }
 
+.buildStatus {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  margin-left: auto;
+  color: var(--muted);
+  font-family: ui-monospace, "SFMono-Regular", Menlo, monospace;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  text-align: right;
+}
+
+.buildStatusText {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.buildStatusLabel {
+  color: var(--green);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: 11px;
+  letter-spacing: 0;
+}
+
+.buildStatus-ready .buildStatusLabel {
+  color: var(--blue);
+}
+
+.buildStatus-unavailable .buildStatusLabel {
+  color: var(--muted);
+}
+
+.buildStatusAction {
+  min-height: 32px;
+  padding: 0 9px;
+  color: var(--blue);
+  background: var(--blue-soft);
+  border: 1px solid #b9cde4;
+  border-radius: 8px;
+  font: inherit;
+  font-size: 10px;
+  font-weight: 800;
+  cursor: pointer;
+}
+
 h1 {
-  font-size: 24px;
-  letter-spacing: -0.01em;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.035em;
   margin: 0;
 }
 
@@ -124,20 +178,21 @@ button:focus-visible,
 }
 
 .exerciseCard {
-  padding: 16px;
+  padding: 18px;
   display: flex;
   flex-direction: column;
   align-items: stretch;
-  gap: 10px;
+  gap: 12px;
 }
 
 .exerciseName {
   font-size: 20px;
-  font-weight: 600;
+  font-weight: 700;
 }
 
 .exerciseTarget {
-  font-size: 20px;
+  font-size: 16px;
+  font-weight: 600;
   white-space: nowrap;
   color: var(--muted);
 }
@@ -189,11 +244,15 @@ dd {
 .bottomNav {
   position: sticky;
   bottom: 0;
+  z-index: 5;
   display: flex;
-  background: var(--surface);
-  border-top: 1px solid var(--line);
-  border-radius: 16px 16px 0 0;
-  box-shadow: 0 -2px 8px rgba(16, 24, 40, 0.08);
+  margin: 20px -18px -24px;
+  padding: 6px 6px max(8px, env(safe-area-inset-bottom));
+  background: rgb(255 255 255 / 96%);
+  border: 1px solid var(--line);
+  border-radius: 18px 18px 0 0;
+  box-shadow: 0 -4px 18px rgb(24 45 32 / 7%);
+  backdrop-filter: blur(12px);
 }
 
 .bottomNav button {
@@ -206,11 +265,9 @@ dd {
   align-items: center;
   justify-content: center;
   gap: 2px;
-  /* Labels stay on one line and words never split ("PROGRE/SS"); the size
-     scales with the viewport so the longest tab (PROGRESS) fits its cell at
-     every width — measured, not guessed: 6em word width vs cell width. */
-  font-size: min(14px, 2.3vw);
-  letter-spacing: -0.01em;
+  /* Keep every label legible while preserving room for the five tabs. */
+  font-size: clamp(9px, 2.7vw, 12px);
+  letter-spacing: -0.035em;
   font-weight: 700;
   background: none;
   border: none;
@@ -235,6 +292,7 @@ dd {
 .bottomNav button[aria-current="page"] {
   color: var(--green);
   background: var(--green-soft);
+  border-radius: 12px;
 }
 
 .chatLog {
@@ -738,10 +796,10 @@ button:disabled,
 
 /* Signed-out landing: a calm training sheet, not a generic fitness dashboard. */
 main.landingShell {
-  --landing-bg: #f3f6f4;
+  --landing-bg: #f2f5f2;
   --landing-ink: #18211c;
   --landing-green: #176b45;
-  --landing-mist: #dce8e0;
+  --landing-mist: #e4eee7;
   --landing-blue: #0b57a4;
   width: 100%;
   max-width: none;
@@ -808,12 +866,11 @@ main.landingShell > .appBar {
 .landingHeadline {
   margin: 0;
   color: var(--landing-ink);
-  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
-  font-size: clamp(50px, 6.6vw, 82px);
-  font-stretch: condensed;
-  font-weight: 750;
-  letter-spacing: -0.055em;
-  line-height: 0.98;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: clamp(46px, 6vw, 76px);
+  font-weight: 760;
+  letter-spacing: -0.065em;
+  line-height: 1;
 }
 
 .landingCopy {
@@ -899,11 +956,11 @@ main.landingShell > .appBar {
   padding: clamp(22px, 3vw, 34px);
   overflow: hidden;
   border: 1px solid #d8e1da;
-  border-radius: 6px;
+  border-radius: 10px;
   background-color: #fff;
   background-image: linear-gradient(to bottom, transparent 39px, #edf1ed 40px);
   background-size: 100% 40px;
-  box-shadow: 0 18px 48px rgb(26 54 39 / 10%), 0 2px 8px rgb(26 54 39 / 5%);
+  box-shadow: 0 14px 38px rgb(26 54 39 / 9%), 0 2px 8px rgb(26 54 39 / 4%);
   animation: sheet-arrive 520ms 80ms ease-out both;
 }
 
@@ -966,10 +1023,10 @@ main.landingShell > .appBar {
 .sheetHeading h3 {
   margin: 0;
   color: var(--landing-ink);
-  font-family: "Avenir Next Condensed", "Arial Narrow", sans-serif;
-  font-size: clamp(29px, 3.2vw, 38px);
-  font-weight: 750;
-  letter-spacing: -0.035em;
+  font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-size: clamp(28px, 3.2vw, 36px);
+  font-weight: 720;
+  letter-spacing: -0.045em;
   line-height: 1.05;
 }
 
@@ -1082,7 +1139,7 @@ main.landingShell > .appBar {
   }
 
   .landingHeadline {
-    font-size: clamp(48px, 12vw, 72px);
+    font-size: clamp(38px, 10.2vw, 66px);
   }
 
   .landingCopy {
@@ -1108,6 +1165,15 @@ main.landingShell > .appBar {
   }
 }
 
+@media (max-width: 420px) {
+  .buildStatus {
+    flex-basis: 100%;
+    justify-content: space-between;
+    margin-left: 40px;
+    text-align: left;
+  }
+}
+
 @media (max-width: 380px) {
   main.landingShell {
     padding-right: 18px;
@@ -1129,12 +1195,588 @@ main.landingShell > .appBar {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .landingIntro,
-  .trainingSheet {
-    animation: none;
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/* Progress and History: useful facts first, with a quiet training-log rhythm. */
+.screenHeader {
+  margin: 2px 0 22px;
+}
+
+.screenKicker,
+.sectionEyebrow {
+  margin: 0 0 5px;
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.075em;
+}
+
+.screenHeader .workoutName {
+  margin: 0;
+  font-size: 32px;
+  font-weight: 760;
+  letter-spacing: -0.05em;
+  line-height: 1.1;
+  text-transform: none;
+}
+
+.screenIntro {
+  margin: 7px 0 0;
+  color: var(--muted);
+  font-size: 16px;
+}
+
+.screenSection {
+  margin-top: 26px;
+}
+
+.sectionHeading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.sectionEyebrow {
+  margin-bottom: 2px;
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.sectionHeading h3,
+.emptyPanel h3 {
+  margin: 0;
+  font-size: 21px;
+  font-weight: 720;
+  letter-spacing: -0.035em;
+}
+
+.sectionCount {
+  display: grid;
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0 8px;
+  place-items: center;
+  border-radius: 999px;
+  background: #e8ede9;
+  color: #46564b;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.progressStats {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin: 0;
+}
+
+.progressStats div {
+  min-width: 0;
+  min-height: 88px;
+  padding: 14px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+}
+
+.progressStats dt {
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.25;
+}
+
+.progressStats dd {
+  color: var(--ink);
+  font-size: 27px;
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1;
+}
+
+.progressStats div:first-child {
+  background: var(--green-soft);
+  border-color: #d4e3d8;
+}
+
+.prCard {
+  position: relative;
+  min-width: 0;
+  gap: 6px;
+  border-left: 4px solid var(--green);
+}
+
+.prTag {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.055em;
+}
+
+.prWeight {
+  font-size: 30px;
+  font-weight: 760;
+  letter-spacing: -0.045em;
+  line-height: 1.05;
+}
+
+.prWeight span {
+  color: var(--muted);
+  font-size: 14px;
+  letter-spacing: 0;
+}
+
+.progressList .exerciseCard {
+  gap: 12px;
+}
+
+.progressList .cardTop {
+  align-items: center;
+}
+
+.trendPill {
+  width: fit-content;
+  padding: 4px 8px;
+  border-radius: 999px;
+  background: #edf0ed;
+  color: #4b554e;
+  font-size: 11px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.trend-up {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.trend-down {
+  background: #fff1db;
+  color: #794100;
+}
+
+.progressMeasures {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+}
+
+.progressMeasures p {
+  min-width: 0;
+  margin: 0;
+  padding: 9px 10px;
+  display: grid;
+  gap: 3px;
+  border-radius: 9px;
+  background: #f2f5f2;
+}
+
+.progressMeasures span {
+  color: var(--muted);
+  font-size: 11px;
+}
+
+.progressMeasures strong {
+  font-size: 15px;
+  font-weight: 720;
+  white-space: nowrap;
+}
+
+.progressFoot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}  .progressFoot .tip {
+  min-width: 0;
+  font-size: 13px;
+}
+
+.sparkline {
+  display: block;
+  flex: 0 0 92px;
+  width: 92px;
+  height: 38px;
+  color: var(--green);
+}
+
+.emptyHint,
+.emptyPanel {
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: #fff;
+  color: var(--muted);
+}
+
+.emptyHint {
+  margin: 0 0 12px;
+  font-size: 15px;
+}
+
+.emptyPanel {
+  padding: 24px 20px;
+}
+
+.emptyPanel h3 {
+  margin: 8px 0 4px;
+  color: var(--ink);
+}
+
+.emptyPanel p {
+  margin: 0;
+  font-size: 15px;
+}
+
+.emptyMark {
+  display: grid;
+  width: 40px;
+  height: 40px;
+  place-items: center;
+  border-radius: 50%;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 22px;
+}  .historyList {
+  gap: 9px;
+}
+
+.recordList {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.recordList .exerciseCard {
+  padding: 13px;
+}
+
+.historyEntry {
+  min-width: 0;
+  overflow: hidden;
+  border: 1px solid var(--line);
+  border-radius: 13px;
+  background: var(--surface);
+  box-shadow: 0 2px 8px rgb(24 45 32 / 5%);
+}
+
+.historyButton {
+  display: grid;
+  grid-template-columns: 52px minmax(0, 1fr) auto 16px;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  min-height: 80px;
+  padding: 12px;
+  color: inherit;
+  text-align: left;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}  .historyButton:focus-visible,
+.backButton:focus-visible {
+  outline: 3px solid var(--blue);
+  outline-offset: -3px;
+}
+
+.historyDate {
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  min-height: 54px;
+  padding: 4px;
+  border-radius: 10px;
+  background: #f0f4f0;
+  line-height: 1;
+}
+
+.historyWeekday,
+.historyMonth {
+  color: var(--muted);
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.historyDay {
+  margin: 3px 0;
+  color: var(--ink);
+  font-size: 21px;
+  font-weight: 750;
+  letter-spacing: -0.04em;
+}
+
+.historyDetails {
+  min-width: 0;
+  display: grid;
+  gap: 4px;
+}
+
+.historyMeta {
+  overflow: hidden;
+  color: var(--ink);
+  font-size: 16px;
+  font-weight: 680;
+  text-overflow: ellipsis;
+}
+
+.historyCompletion {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.historyResult {
+  padding: 5px 7px;
+  border-radius: 999px;
+  background: #f0f2f0;
+  color: #515b54;
+  font-size: 12px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.historyResult.isComplete {
+  background: var(--green-soft);
+  color: var(--green);
+}
+
+.historyChevron {
+  color: #7a857d;
+  font-size: 23px;
+  line-height: 1;
+}
+
+.backButton {
+  min-height: 44px;
+  margin: 0 0 16px;
+  padding: 0 12px 0 0;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--green);
+  font: 650 15px/1 system-ui, sans-serif;
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+}
+
+.detailHeader {
+  margin-bottom: 18px;
+}
+
+.historyExerciseResult {
+  margin: 0;
+  color: var(--green);
+  font-size: 18px;
+  font-weight: 720;
+}
+
+.historySets {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Keep AI guidance blue and safety messages clearly distinct on the clipboard. */
+.coachCard {
+  border-left-color: var(--blue);
+}
+
+.aiLabel,
+.suggestedWeight {
+  color: var(--blue);
+}
+
+.whyText {
+  border-left-color: var(--blue-soft);
+}
+
+@media (max-width: 380px) {
+  .screenHeader .workoutName {
+    font-size: 29px;
   }
 
-  .landingSignIn {
-    transition: none;
+  .progressStats {
+    gap: 8px;
+  }
+
+  .progressStats div {
+    padding: 12px;
+  }
+
+  .historyButton {
+    grid-template-columns: 46px minmax(0, 1fr) auto 12px;
+    gap: 8px;
+    padding: 10px;
+  }
+
+  .historyMeta {
+    font-size: 14px;
+  }
+
+  .historyCompletion {
+    font-size: 12px;
+  }
+}
+
+.workoutHeader {
+  display: grid;
+  justify-items: start;
+  gap: 5px;
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.workoutHeader .workoutName {
+  margin: 0;
+  font-size: clamp(22px, 6vw, 28px);
+  font-weight: 750;
+  letter-spacing: -0.04em;
+  line-height: 1.12;
+}  .workoutHeader .progressLine {
+  margin: 0;
+  font-size: 16px;
+}
+
+.workoutProgress {
+  display: block;
+  width: min(100%, 320px);
+  height: 8px;
+  margin: 4px 0;
+  overflow: hidden;
+  appearance: none;
+  border: 0;
+  border-radius: 999px;
+  background: #e1e8e2;
+  color: var(--green);
+  accent-color: var(--green);
+}
+
+.workoutProgress::-webkit-progress-bar {
+  border-radius: inherit;
+  background: #e1e8e2;
+}
+
+.workoutProgress::-webkit-progress-value {
+  border-radius: inherit;
+  background: var(--green);
+  transition: width 180ms ease-out;
+}
+
+.workoutProgress::-moz-progress-bar {
+  border-radius: inherit;
+  background: var(--green);
+}
+
+.exerciseCard.isComplete {
+  border-color: #c7dccd;
+  background: #fbfdfb;
+}
+
+.exerciseCompleteButton[aria-pressed="true"] {
+  background: #e4eee7;
+  color: var(--green);
+  border: 1px solid #c7dccd;
+  box-shadow: none;
+}
+
+.syncBadge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 28px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 12px;
+  font-weight: 750;
+  letter-spacing: 0.04em;
+}
+
+.sync-syncing {
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.sync-offline {
+  background: #fff1db;
+  color: #794100;
+}
+
+.primaryButton,
+.secondaryButton,
+.weightRow button,
+.feelRow button {
+  cursor: pointer;
+}
+
+@media (hover: hover) {
+  .primaryButton:hover:not(:disabled) {
+    filter: brightness(1.06);
+  }
+
+  .secondaryButton:hover:not(:disabled),
+  .feelRow button:hover:not(:disabled),
+  .weightRow button:hover:not(:disabled) {
+    border-color: var(--green);
+  }
+}
+
+@media (max-width: 430px) {
+  main {
+    padding-right: 16px;
+    padding-left: 16px;
+  }
+
+  .bottomNav {
+    margin-right: -16px;
+    margin-left: -16px;
+    padding-right: 4px;
+    padding-left: 4px;
+  }
+
+  .bottomNav button {
+    min-height: 58px;
+    padding-right: 1px;
+    padding-left: 1px;
+  }
+
+  .exerciseCard {
+    padding: 16px;
+  }
+
+  .landingHeadline {
+    font-size: clamp(38px, 10.2vw, 66px);
+  }
+
+  .landingCopy {
+    font-size: 17px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
   }
 }

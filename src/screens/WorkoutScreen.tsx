@@ -42,6 +42,12 @@ export default function WorkoutScreen(props: Props) {
         <p className="progressLine">
           {done} of {props.exercises.length} complete
         </p>
+        <progress
+          className="workoutProgress"
+          max={props.exercises.length}
+          value={done}
+          aria-label="Workout completion"
+        />
         <span className={`syncBadge sync-${props.syncState}`} aria-live="polite">
           {SYNC_LABEL[props.syncState]}
         </span>
@@ -51,19 +57,23 @@ export default function WorkoutScreen(props: Props) {
         <RestTimer defaultSeconds={props.restSeconds} onSkip={() => setResting(null)} />
       )}
       <ul className="cardList">
-        {props.exercises.map((e) => (
-          <ExerciseCard
-            key={e.exerciseKey}
-            exercise={e}
-            templateExercise={props.template.exercises.find((t) => t.key === e.exerciseKey)!}
-            onPatch={(patch) => props.onPatchExercise(e.exerciseKey, patch)}
-            onLogSet={(set) => props.onLogSet(e.exerciseKey, set)}
-            onSetLogged={() => setResting(e.exerciseKey)}
-            suggestion={props.recommendations?.[e.exerciseKey]}
-            increment={props.increments?.[e.exerciseKey]}
-            onDecide={(d) => props.onDecide?.(e.exerciseKey, d)}
-          />
-        ))}
+        {props.exercises.map((e) => {
+          const templateExercise = props.template.exercises.find((t) => t.key === e.exerciseKey);
+          if (!templateExercise) return null;
+          return (
+            <ExerciseCard
+              key={e.exerciseKey}
+              exercise={e}
+              templateExercise={templateExercise}
+              onPatch={(patch) => props.onPatchExercise(e.exerciseKey, patch)}
+              onLogSet={(set) => props.onLogSet(e.exerciseKey, set)}
+              onSetLogged={() => setResting(e.exerciseKey)}
+              suggestion={props.recommendations?.[e.exerciseKey]}
+              increment={props.increments?.[e.exerciseKey]}
+              onDecide={(d) => props.onDecide?.(e.exerciseKey, d)}
+            />
+          );
+        })}
       </ul>
       <button type="button" className="primaryButton" onClick={props.onFinish}>
         FINISH WORKOUT
@@ -85,9 +95,10 @@ function ExerciseCard(props: {
   const { exercise: e, templateExercise: t } = props;
   const isResistance = t.kind === "resistance";
   const step = props.increment ?? 5;
+  const unit = (e.weightUnit ?? "lb").toUpperCase();
 
   return (
-    <li className="exerciseCard">
+    <li className={`exerciseCard${e.completed ? " isComplete" : ""}`}>
       <div className="cardTop">
         <span className="exerciseName">{t.name}</span>
         <span className="exerciseTarget">
@@ -100,7 +111,7 @@ function ExerciseCard(props: {
       {isResistance && (
         <>
           <p className="lastTime">
-            LAST: {e.previousWeight !== null ? `${e.previousWeight} LB` : "—"}
+            LAST: {e.previousWeight !== null ? `${e.previousWeight} ${unit}` : "—"}
           </p>
           <div className="weightRow" role="group" aria-label="Today's weight">
             <button
@@ -113,7 +124,7 @@ function ExerciseCard(props: {
             <input
               type="number"
               inputMode="numeric"
-              aria-label="Today's weight in pounds"
+              aria-label={`Today's weight in ${unit.toLowerCase()}`}
               value={e.weightUsed ?? 0}
               onChange={(ev) =>
                 props.onPatch({
@@ -121,7 +132,7 @@ function ExerciseCard(props: {
                 })
               }
             />
-            <span aria-hidden="true">{(e.weightUnit ?? "lb").toUpperCase()}</span>
+            <span aria-hidden="true">{unit}</span>
             <button
               type="button"
               aria-label="Increase weight"
@@ -195,7 +206,7 @@ function ExerciseCard(props: {
       )}
       <button
         type="button"
-        className="primaryButton"
+        className="primaryButton exerciseCompleteButton"
         aria-pressed={e.completed}
         onClick={() => props.onPatch({ completed: !e.completed })}
       >

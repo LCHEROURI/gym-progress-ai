@@ -9,12 +9,14 @@ export interface AuthSession {
   error: string | null;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+  retry: () => void;
 }
 
 export function useAuthSession(): AuthSession {
   const [user, setUser] = useState<{ uid: string; email: string | null } | null>(null);
   const [state, setState] = useState<"loading" | "ready" | "error">("loading");
   const [error, setError] = useState<string | null>(null);
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let unsubscribe: (() => void) | undefined;
@@ -43,6 +45,12 @@ export function useAuthSession(): AuthSession {
       cancelled = true;
       unsubscribe?.();
     };
+  }, [attempt]);
+
+  const retry = useCallback(() => {
+    setState("loading");
+    setError(null);
+    setAttempt((current) => current + 1);
   }, []);
 
   const signIn = useCallback(async () => {
@@ -59,5 +67,5 @@ export function useAuthSession(): AuthSession {
     await authServices.signOut();
   }, []);
 
-  return { user, state, error, signIn, signOut };
+  return { user, state, error, signIn, signOut, retry };
 }
