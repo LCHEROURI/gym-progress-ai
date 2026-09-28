@@ -145,7 +145,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 | Thing | Name | Location |
 |---|---|---|
 | This repository + directory | `gym-progress-ai` | `~/gym-progress-ai` (standalone git repo) |
-| GitHub remote | `gym-progress-ai` | `LCHEROURI/gym-progress-ai` (private) |
+| GitHub remote | `gym-progress-ai` | `LCHEROURI/gym-progress-ai` (public) |
 | Firebase / Google Cloud project | `gym-progress-ai-lcherouri` | provisioned in Phase 2 (globally unique id — the plain id was taken; repo/directory keep the name `gym-progress-ai`) |
 | Template this repo was created from | `universal-vibe-coding-bootstrap` | `LCHEROURI/universal-vibe-coding-bootstrap` |
 
