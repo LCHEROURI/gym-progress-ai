@@ -174,3 +174,5 @@ is not running — which is itself worth knowing.
 | 403 deploying | the deployer SA lacks `roles/firebasehosting.admin` |
 | Run succeeds, nothing deployed | the reusable workflow matched neither `preview` nor `production` — its jobs are gated on `github.event_name`, so only `push` to `main` and `pull_request` do anything. `tests/deploy-ci.test.ts` pins this. |
 | Run succeeds, production is stale | check the run's `deploy` job logs; a skipped reusable job is not a failure |
+
+<!-- CI OIDC verification PR. Safe to close without merging. -->
