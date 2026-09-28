@@ -48,6 +48,13 @@ jobs:
           node list-boot-failures.mjs
           # --confirm is required; without it the script refuses to write, which
           # is the correct default and also the correct failure mode here.
-          node purge-boot-failures.mjs liveness-probe --confirm
+          #
+          # --max is required too, and deliberately so. The script's ceiling is
+          # 1 by default, so it refuses a bulk delete unless someone has
+          # explicitly said how many are expected. A 15-minute probe produces
+          # ~96 documents a day, so this job always needs a number; a real
+          # person's report would hit the default ceiling and stop, which is
+      # exactly the intended asymmetry.
+          node purge-boot-failures.mjs liveness-probe --confirm --max 200
           echo "--- after ---"
           node list-boot-failures.mjs

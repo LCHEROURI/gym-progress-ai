@@ -122,9 +122,19 @@ describe("probe documents are purged", () => {
     // the collection grows forever with no error anywhere.
     const probeId = probeBuildId();
     expect(probeId).toBe("liveness-probe");
-    expect(purgeWorkflow).toContain(
-      `node purge-boot-failures.mjs ${probeId} --confirm`,
-    );
+    const arg = purgeWorkflow.match(/^\s*node purge-boot-failures\.mjs\s+(\S+)/m)?.[1];
+    expect(arg).toBe(probeId);
+  });
+
+  it("states an explicit delete ceiling, because 96 probes a day is a bulk delete", () => {
+    // The script refuses more than one document by default. That guard is
+    // correct and it fired for real: seven probe documents accumulated before
+    // anyone noticed, and the scheduled purge could not do its job. The job
+    // therefore has to say how many it expects, out loud.
+    expect(purgeWorkflow).toMatch(/--max \d+/);
+    expect(purgeScript).toContain("DEFAULT_MAX_DELETE = 1");
+    // And the ceiling must still be raisable, or the guard is not a guard.
+    expect(purgeScript).toContain("--max");
   });
 
   it("never uses a prefix or substring match for a bulk delete", () => {

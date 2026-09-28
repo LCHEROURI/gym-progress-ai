@@ -7,7 +7,9 @@
  *   - it never deletes a whole collection; BUILD_ID must be an exact match
  *   - it prints every candidate in full BEFORE deleting anything
  *   - it refuses to run if the match is empty, or if the match is larger than
- *     MAX_DELETE (a bulk delete is a human decision, not a script's)
+ *     the delete ceiling (a bulk delete is a deliberate decision, not a
+ *     script's). The ceiling is 1 by default and must be raised explicitly with
+ *     --max, so "delete everything matching X" is always a typed decision.
  *   - it re-reads afterwards and reports the count that survived
  *
  * Usage:
@@ -18,13 +20,21 @@ import { getFirestore } from "firebase-admin/firestore";
 
 const PROJECT = process.env.FIRESTORE_PROJECT_ID ?? "gym-progress-ai-lcherouri";
 const COLLECTION = "bootFailures";
-const MAX_DELETE = 1;
+const DEFAULT_MAX_DELETE = 1;
 
 const buildId = process.argv[2];
 const confirmed = process.argv.includes("--confirm");
+const maxIdx = process.argv.indexOf("--max");
+const maxDelete = maxIdx === -1 ? DEFAULT_MAX_DELETE : Number(process.argv[maxIdx + 1]);
 
 if (!buildId) {
-  console.error("usage: node purge-boot-failures.mjs <exact-buildId> --confirm");
+  console.error(
+    "usage: node purge-boot-failures.mjs <exact-buildId> --confirm [--max N]",
+  );
+  process.exit(2);
+}
+if (!Number.isInteger(maxDelete) || maxDelete < 1) {
+  console.error("--max must be a positive integer");
   process.exit(2);
 }
 
@@ -46,11 +56,14 @@ if (candidates.length === 0) {
   console.log("nothing to delete; exiting without writing");
   process.exit(0);
 }
-if (candidates.length > MAX_DELETE) {
+if (candidates.length > maxDelete) {
   console.error(
-    `refusing: ${candidates.length} documents match, MAX_DELETE is ${MAX_DELETE}. ` +
-      "A bulk delete needs explicit human review.",
+    `refusing: ${candidates.length} documents match, ceiling is ${maxDelete}. ` +
+      "Re-run with --max N if a bulk delete is genuinely intended. The default " +
+      "of 1 exists so that 'delete everything matching X' is always a typed decision.",
   );
+  console.error("candidates:");
+  for (const doc of candidates) console.error("  " + doc.id);
   process.exit(3);
 }
 if (!confirmed) {

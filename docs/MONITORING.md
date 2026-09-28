@@ -65,9 +65,65 @@ An empty list means the check is not running, regardless of what the console
 shows. `monitoring/provision.sh` re-creates anything missing and is safe to
 re-run.
 
-## Known limits, stated rather than hidden
+## Status right now: the check runs, the alert does not fire yet
 
-**Hourly is not possible.** `gcloud monitoring uptime create --period` is in
+This is the honest state as of 2026-09-28, and it matters more than the rest of
+this file.
+
+| Piece | State |
+|---|---|
+| Uptime check `boot-intake-liveness-NLXrhTcawlA` | **running**, every 15 min from 3 US regions |
+| Probe reaching `/__boot` | **confirmed** — see below |
+| `uptime_check/check_passed` metric | **never materialises** |
+| Alert policy | **cannot be created** — blocked on the metric |
+| Email notification | **unverified**, and would send nothing anyway |
+
+The check is genuinely working. `bootFailures` accumulates `liveness-probe`
+documents on schedule:
+
+```
+2026-09-28T17:19:54Z  buildId=liveness-probe  count=2
+2026-09-28T17:22:40Z  buildId=liveness-probe  count=1
+2026-09-28T17:33:33Z  buildId=liveness-probe  count=3
+```
+
+So the endpoint is being probed every fifteen minutes and answering 202. What
+does not happen is the **alert**: the API refuses to create a policy that
+filters on a metric with no data points, and no data points are ever written:
+
+```
+Cannot find metric(s) that match type =
+  "monitoring.googleapis.com/uptime_check/check_passed"
+label = "check_id" label = "check_passed"
+```
+
+GCP's own guidance is *"it could take up to 10 minutes to become available"*,
+and this was still empty forty minutes after creation, so that is not the
+answer. The likely cause is a missing **Monitoring service agent** — the
+project has no `service-777425611767@gcp-sa-monitoring.iam.gserviceaccount.com`,
+and without it the checker can make HTTP requests but cannot write its metric.
+The probes landing in Firestore are consistent with exactly that: the check
+works, the reporting path does not.
+
+**To finish it, run this** (it hung repeatedly in the session that wrote this
+file, so it may well work from your shell):
+
+```bash
+gcloud beta services identity create \
+  --service=monitoring.googleapis.com --project=gym-progress-ai-lcherouri
+
+# then wait one check period, confirm a data point, and create the policy:
+node monitoring/provision.sh
+gcloud monitoring time-series list --project=gym-progress-ai-lcherouri \
+  --filter='metric.type="monitoring.googleapis.com/uptime_check/check_passed"'
+```
+
+Until that lands, **nothing will email you.** The check is running, so the
+endpoint is being exercised, but a silent probe is not a monitor. Re-run
+`monitoring/provision.sh` after the next check period: it is idempotent and
+creates the policy the moment the metric exists.
+
+
 minutes and only accepts 1, 5, 10, or 15. The REST v3 API, which would take
 `3600s`, rejects uptime-check creation on this project with `Invalid target
 type` at any period. The check therefore runs every 15 minutes — about 96 probe

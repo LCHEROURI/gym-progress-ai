@@ -78,9 +78,25 @@ if curl -s -m 60 -H "Authorization: Bearer $(gcloud auth print-access-token)" \
   echo "alert policy: present"
 else
   echo "alert policy: MISSING"
-  echo "  The check must produce a data point before a policy can filter on it."
-  echo "  Wait ~15 minutes (one check period), then re-run this script."
+  echo
+  echo "  The check probes correctly (bootFailures accumulates liveness-probe"
+  echo "  documents on schedule) but the check_passed metric never materialises,"
+  echo "  and a policy cannot filter on a metric with no data points."
+  echo
+  echo "  Most likely cause: the Monitoring service agent is missing, so the"
+  echo "  checker can make HTTP requests but cannot write its metric."
+  echo
+  echo "  Check:"
+  echo "    gcloud iam service-accounts list --project=$PROJECT | grep gcp-sa"
+  echo "  Create it if absent (this hung in the session that wrote this file):"
+  echo "    gcloud beta services identity create \\"
+  echo "      --service=monitoring.googleapis.com --project=$PROJECT"
+  echo
+  echo "  Then wait one check period (15 min) and re-run this script."
   echo "  Policy definition: $HERE/boot-intake-alert-policy.yaml"
+  echo
+  echo "  Until this completes NOTHING WILL EMAIL YOU. A running probe is not"
+  echo "  a monitor."
 fi
 
 echo
