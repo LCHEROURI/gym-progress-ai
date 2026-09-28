@@ -37,7 +37,14 @@ export default function RecommendationCard({
           </button>
         )}
         <button type="button" onClick={onKeep}>
-          {blocked ? "KEEP CURRENT WEIGHT" : `KEEP ${r.suggestedWeight === r.previousWeight ? r.previousWeight : r.previousWeight} LB`}
+          {/* previousWeight is null when there is not enough history to judge
+              (progression.ts returns that for the insufficient-data case), so
+              naming a number is impossible — and the old ternary interpolated
+              it anyway, rendering a literal "KEEP null LB" on every new
+              account. Fall back to the same wording the blocked case uses. */}
+          {blocked || r.previousWeight === null
+            ? "KEEP CURRENT WEIGHT"
+            : `KEEP ${r.previousWeight} LB`}
         </button>
         {!blocked && (
           <button type="button" onClick={onChooseOther}>

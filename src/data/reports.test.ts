@@ -23,6 +23,26 @@ vi.mock("firebase/firestore", () => ({
 
 import { fetchReport, fetchReports } from "./reports";
 
+/**
+ * Regression: weeklyReportSchema declares createdAt as z.date(), and these
+ * loaders parsed raw Firestore documents, so the first read of any stored
+ * report threw and Reports showed "Could not load your reports". It was latent
+ * in production only because no report existed yet — an empty collection
+ * never reaches the parse.
+ */
+const timestamp = (d: Date) => ({ toDate: () => d, seconds: d.getTime() / 1000 });
+
+describe("fetchReports with Firestore Timestamps", () => {
+  it("converts createdAt instead of throwing", async () => {
+    mocks.getDocs.mockResolvedValueOnce({
+      docs: [{ data: () => ({ ...report, createdAt: timestamp(report.createdAt) }) }],
+    } as never);
+    const rows = await fetchReports({ db: {} as never }, "u1");
+    expect(rows).toHaveLength(1);
+    expect(rows[0].createdAt).toBeInstanceOf(Date);
+  });
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
 });

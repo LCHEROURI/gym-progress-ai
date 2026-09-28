@@ -1,5 +1,6 @@
 import { collection, doc, getDoc, getDocs, orderBy, query } from "firebase/firestore";
 import type { RepoCtx } from "./session-repository";
+import { REPORT_DATE_FIELDS, withDateFields } from "./session-repository";
 import {
   weeklyReportSchema,
   type WeeklyReport,
@@ -12,7 +13,9 @@ export async function fetchReports(ctx: RepoCtx, uid: string): Promise<WeeklyRep
   const snap = await getDocs(
     query(collection(ctx.db, path(uid)), orderBy("weekStart", "desc")),
   );
-  return snap.docs.map((d) => weeklyReportSchema.parse(d.data()));
+  return snap.docs.map((d) =>
+    weeklyReportSchema.parse(withDateFields(d.data(), REPORT_DATE_FIELDS)),
+  );
 }
 
 export async function fetchReport(
@@ -21,5 +24,7 @@ export async function fetchReport(
   reportId: string,
 ): Promise<WeeklyReport | null> {
   const snap = await getDoc(doc(ctx.db, `${path(uid)}/${reportId}`));
-  return snap.data() ? weeklyReportSchema.parse(snap.data()) : null;
+  return snap.data()
+    ? weeklyReportSchema.parse(withDateFields(snap.data(), REPORT_DATE_FIELDS))
+    : null;
 }

@@ -18,6 +18,12 @@ import {
 } from "../domain/session";
 import type { LoggedSet } from "../workout/summary";
 import type { RepoCtx } from "./session-repository";
+import {
+  EXERCISE_DATE_FIELDS,
+  SESSION_DATE_FIELDS,
+  SET_DATE_FIELDS,
+  withDateFields,
+} from "./session-repository";
 
 export interface HistoryRow {
   id: string;
@@ -47,9 +53,13 @@ export async function fetchHistory(
   );
   return Promise.all(
     snap.docs.map(async (d) => {
-      const session = workoutSessionSchema.parse(d.data());
+      const session = workoutSessionSchema.parse(
+        withDateFields(d.data(), SESSION_DATE_FIELDS),
+      );
       const exSnap = await getDocs(collection(ctx.db, `${sessionsPath(uid)}/${session.id}/exercises`));
-      const exercises = exSnap.docs.map((e) => exerciseSessionSchema.parse(e.data()));
+      const exercises = exSnap.docs.map((e) =>
+        exerciseSessionSchema.parse(withDateFields(e.data(), EXERCISE_DATE_FIELDS)),
+      );
       return {
         id: session.id,
         scheduledDate: session.scheduledDate,
@@ -68,9 +78,13 @@ export async function fetchHistoryDetail(
   sessionId: string,
 ): Promise<HistoryDetail> {
   const sessionSnap = await getDoc(doc(ctx.db, `${sessionsPath(uid)}/${sessionId}`));
-  const session = workoutSessionSchema.parse(sessionSnap.data());
+  const session = workoutSessionSchema.parse(
+    withDateFields(sessionSnap.data(), SESSION_DATE_FIELDS),
+  );
   const exSnap = await getDocs(collection(ctx.db, `${sessionsPath(uid)}/${sessionId}/exercises`));
-  const exercises = exSnap.docs.map((e) => exerciseSessionSchema.parse(e.data()));
+  const exercises = exSnap.docs.map((e) =>
+    exerciseSessionSchema.parse(withDateFields(e.data(), EXERCISE_DATE_FIELDS)),
+  );
 
   const sets: LoggedSet[] = [];
   for (const e of exercises) {
@@ -78,7 +92,10 @@ export async function fetchHistoryDetail(
       collection(ctx.db, `${sessionsPath(uid)}/${sessionId}/exercises/${e.exerciseKey}/sets`),
     );
     for (const s of setSnap.docs) {
-      sets.push({ ...setSchema.parse(s.data()), exerciseKey: e.exerciseKey });
+      sets.push({
+        ...setSchema.parse(withDateFields(s.data(), SET_DATE_FIELDS)),
+        exerciseKey: e.exerciseKey,
+      });
     }
   }
   return { session, exercises, sets };
