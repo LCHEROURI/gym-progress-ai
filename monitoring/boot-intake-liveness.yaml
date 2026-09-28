@@ -1,0 +1,58 @@
+# Cloud Monitoring uptime check for the /__boot blank-screen telemetry intake.
+#
+# Created with monitoring/provision.sh. This file records the resulting
+# configuration; gcloud cannot create it from a YAML file on this machine
+# version, and the REST v3 API rejects creation entirely with "Invalid target
+# type" at any period. The only working path was the flag form in
+# monitoring/provision.sh, so that is the source of truth. This YAML mirrors
+# what was created and is what tests/monitoring-config.test.ts asserts against.
+#
+# Why an uptime check and not a scheduled job: this has to keep working when
+# the things it watches are broken. A monitor that lives in the same CI as the
+# deploy, or that shares a failure mode with the endpoint, reports healthy
+# exactly when it matters most. Cloud Monitoring probes from Google's
+# infrastructure, outside both this repository and the Firebase project.
+displayName: boot-intake-liveness
+# Mirrors the live config, which gcloud stores as `monitoredResource` (REST
+# snake) and the CLI calls --resource-type / --resource-labels.
+monitoredResource:
+  type: uptime_url
+  labels:
+    host: gym-progress-ai-lcherouri.web.app
+    # Added by the API, not by us; recorded so a diff against the live check
+    # shows no unexplained difference.
+    project_id: gym-progress-ai-lcherouri
+period: 900s # gcloud expresses --period in MINUTES: 15. 3600 is not offered.
+timeout: 20s
+httpCheck:
+  path: /__boot
+  port: 443
+  useSsl: true
+  # Certificate validation stays on. Turning it off would let anything on the
+  # path answer the probe and report the endpoint healthy while it is not —
+  # the monitor would then be attesting to the TLS termination, not the
+  # endpoint.
+  validateSslCertificates: true
+  method: post
+  contentType: user-provided
+  customContentType: text/plain
+  # Must stay byte-identical to what functions/purge-boot-failures.mjs matches
+  # on. The stable buildId is what makes probe documents identifiable and
+  # purgeable as a set rather than as a growing pile of near-duplicates.
+  body: '{"buildId":"liveness-probe","stage":"boot","message":"Cloud Monitoring liveness probe"}'
+  # 202, not 2xx. 202 means "accepted and recorded". A 200 would mean the
+  # contract changed shape, which is itself a signal worth an alert.
+  acceptedResponseStatusCodes:
+    - statusValue: 202
+# Assert the body too — a 202 served by a proxy error page would otherwise
+# pass. Note this sits beside httpCheck in the stored config, not inside it.
+contentMatchers:
+  - content: '"ok":true'
+    matcher: CONTAINS_STRING
+# Three regions are the documented minimum for this API, and it is also the
+# right number: one probe failing is usually a network blip between Google and
+# the endpoint, while all three failing is an outage.
+selectedRegions:
+  - usa-iowa
+  - usa-oregon
+  - usa-virginia

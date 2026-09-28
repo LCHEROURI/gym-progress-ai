@@ -144,6 +144,33 @@ describe("deploy-hosting workflow", () => {
     expect(caller).not.toMatch(/firestore:rules/);
   });
 
+  it("smoke-checks that the app can initialize, not just that it is served", () => {
+    // A build missing its VITE_* config passes every routing and MIME check
+    // and then throws in parseEnv() on first render. It shipped from CI once:
+    // the deploy was green, the smoke check was green, and every user got an
+    // error page. Nothing booted the app.
+    expect(caller).toContain("VITE_FIREBASE_PROJECT_ID");
+    expect(caller).toMatch(/does not contain the Firebase project id/);
+  });
+
+  it("gives the reusable workflow's build step the VITE_* variables", () => {
+    // A called workflow cannot receive env from its caller, so the variables
+    // have to be wired inside the workflow that actually runs `npm run build`.
+    // Vite inlines import.meta.env at build time, not runtime.
+    const reusable = readFileSync(".github/workflows/firebase-hosting-reusable.yml", "utf8");
+    expect(reusable).toContain("vars.VITE_FIREBASE_API_KEY");
+    expect(reusable).toContain("vars.VITE_FIREBASE_PROJECT_ID");
+    // Both the preview and production build steps, or previews ship broken
+    // builds that look fine because nobody opens them.
+    const envBlocks = reusable.match(/VITE_FIREBASE_API_KEY: /g) ?? [];
+    expect(envBlocks.length).toBe(2);
+  });
+
+  it("fails the build loudly when the config is missing, instead of deploying it", () => {
+    const reusable = readFileSync(".github/workflows/firebase-hosting-reusable.yml", "utf8");
+    expect(reusable).toMatch(/::error::VITE_FIREBASE_API_KEY/);
+  });
+
   it("smoke-checks the routing that caused the blank screen", () => {
     // A deleted chunk must 404, not 200 text/html — the difference between an
     // honest failure and a cached HTML shell that bricks an iPhone until site

@@ -189,4 +189,22 @@ jobs:
             --data "{\"buildId\":\"ci-smoke-${{ github.run_id }}\",\"stage\":\"boot\",\"message\":\"CI post-deploy liveness\"}")
           check "boot intake 202" 202 "$boot"
 
+          # The app must be able to INITIALIZE, not merely be served. A build
+          # missing its VITE_* config passes every check above — 404, 200, the
+          # right MIME type, a working boot intake — and then throws in
+          # parseEnv() on first render. That shipped from CI once already, and
+          # every previous smoke check was green while the app was unusable.
+          # This asserts the Firebase web config actually reached the bundle:
+          # Vite inlines it at build time, so its presence is the difference
+          # between an app and an error page.
+          bundle=$(curl -s "$SITE$asset")
+          if echo "$bundle" | grep -q "${{ vars.VITE_FIREBASE_PROJECT_ID }}"; then
+            echo "ok: Firebase project id present in the deployed bundle"
+          else
+            echo "::error::$asset does not contain the Firebase project id."
+            echo "::error::The build ran without VITE_* variables, so parseEnv() throws on first render."
+            echo "::error::Check the repository variables and that the build step passes them as env."
+            fail=1
+          fi
+
           exit $fail

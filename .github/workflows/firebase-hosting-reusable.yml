@@ -71,7 +71,30 @@ jobs:
       - name: Build application
         env:
           BUILD_COMMAND: ${{ inputs.build-command }}
+          # Vite inlines import.meta.env.VITE_* at BUILD time, not runtime. A
+          # build without these produces a bundle whose parseEnv() throws on
+          # first render — deployed successfully, green in every routing and
+          # MIME check, and completely broken for users. That is not
+          # hypothetical: it shipped once, from CI, and the smoke check missed
+          # it because the smoke check never booted the app.
+          #
+          # These are repository VARIABLES, not secrets: the Firebase web
+          # config is referrer-restricted and ships inside the public bundle
+          # by definition. Only the web app config belongs here — never
+          # GEMINI_API_KEY or any other Secret Manager value.
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_APP_CHECK_SITE_KEY: ${{ vars.VITE_APP_CHECK_SITE_KEY }}
+          VITE_FCM_VAPID_KEY: ${{ vars.VITE_FCM_VAPID_KEY }}
         run: |
+          if [ -z "${VITE_FIREBASE_API_KEY:-}" ] || [ -z "${VITE_FIREBASE_PROJECT_ID:-}" ]; then
+            echo "::error::VITE_FIREBASE_API_KEY / VITE_FIREBASE_PROJECT_ID are not set. The build would produce a bundle that throws on first render."
+            exit 1
+          fi
           if [ "$BUILD_COMMAND" != "auto" ]; then
             sh -c "$BUILD_COMMAND"
           elif node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)" 2>/dev/null; then
@@ -115,7 +138,30 @@ jobs:
       - name: Build application
         env:
           BUILD_COMMAND: ${{ inputs.build-command }}
+          # Vite inlines import.meta.env.VITE_* at BUILD time, not runtime. A
+          # build without these produces a bundle whose parseEnv() throws on
+          # first render — deployed successfully, green in every routing and
+          # MIME check, and completely broken for users. That is not
+          # hypothetical: it shipped once, from CI, and the smoke check missed
+          # it because the smoke check never booted the app.
+          #
+          # These are repository VARIABLES, not secrets: the Firebase web
+          # config is referrer-restricted and ships inside the public bundle
+          # by definition. Only the web app config belongs here — never
+          # GEMINI_API_KEY or any other Secret Manager value.
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_APP_CHECK_SITE_KEY: ${{ vars.VITE_APP_CHECK_SITE_KEY }}
+          VITE_FCM_VAPID_KEY: ${{ vars.VITE_FCM_VAPID_KEY }}
         run: |
+          if [ -z "${VITE_FIREBASE_API_KEY:-}" ] || [ -z "${VITE_FIREBASE_PROJECT_ID:-}" ]; then
+            echo "::error::VITE_FIREBASE_API_KEY / VITE_FIREBASE_PROJECT_ID are not set. The build would produce a bundle that throws on first render."
+            exit 1
+          fi
           if [ "$BUILD_COMMAND" != "auto" ]; then
             sh -c "$BUILD_COMMAND"
           elif node -e "process.exit(require('./package.json').scripts?.build ? 0 : 1)" 2>/dev/null; then

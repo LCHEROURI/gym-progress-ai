@@ -1,0 +1,68 @@
+# Alert policy: the /__boot blank-screen telemetry intake stopped answering.
+#
+# Create with monitoring/provision.sh (see the alert-policy step there). The
+# REST v3 schema differs from the documented policy YAML in two ways that both
+# fail as INVALID_ARGUMENT, so this file matches the schema the API accepts:
+#
+#   * `conditionThreshold.filter` is a single newline-joined STRING in v3, not
+#     a YAML list. A list fails with "Proto field is not repeating".
+#   * there is no top-level `alertPolicy` block. Re-alert/auto-close config is
+#     `alertStrategy` with `notificationPrompts` and `autoClose`.
+displayName: boot-intake-liveness
+combiner: OR
+conditions:
+  - displayName: /__boot uptime check failing
+    conditionThreshold:
+      filter: |-
+        metric.type = "monitoring.googleapis.com/uptime_check/check_passed"
+        resource.type = "uptime_url"
+        metric.label.check_passed = "false"
+        resource.labels.host = "gym-progress-ai-lcherouri.web.app"
+        metric.labels.check_id = "boot-intake-liveness-NLXrhTcawlA"
+      aggregations:
+        # The check runs every 15 minutes from three regions. ALIGN_MIN over a
+        # 5-minute window means one failed probe in any region is recorded
+        # promptly, instead of waiting out the full check interval.
+        - alignmentPeriod: 300s
+          perSeriesAligner: ALIGN_MIN
+          crossSeriesReducer: REDUCE_MIN
+          groupByFields:
+            - resource.label.host
+      comparison: COMPARISON_GT
+      # check_passed is 0 on failure, so "> 0" over the false-series means
+      # "a failure was recorded".
+      thresholdValue: 0
+      # Two consecutive 5-minute windows. One failing probe from one of three
+      # regions is usually a network blip; ten minutes is not.
+      duration: 600s
+      trigger:
+        count: 1
+notificationChannels:
+  - projects/gym-progress-ai-lcherouri/notificationChannels/6702693093728203083
+alertStrategy:
+  # One email when the incident opens, one when it closes. There is no repeat
+  # interval in this API: a continuously-failing check notifies exactly once.
+  # If that is not enough, the escalation is a second policy, not a setting
+  # here — and docs/MONITORING.md says so.
+  notificationPrompts:
+    - OPENED
+    - CLOSED
+  autoClose: 0s
+documentation:
+  mimeType: text/markdown
+  content: |
+    The `/__boot` endpoint is the blank-screen telemetry path. It reports a
+    poisoned chunk, a MIME error, or a mount timeout — failures the app cannot
+    report, because the app is exactly what failed.
+
+    While this is down, blank screens are happening invisibly. Treat every
+    deploy as unverified until it recovers.
+
+    Historically the cause was a cold-start OOM on `reportBootFailure`: at
+    128MiB the runtime killed the instance at 141MiB before the handler ran, so
+    a request arriving while the function was scaled to zero got a 500 while a
+    burst against one warm instance got a 202. That made a broken endpoint look
+    healthy to any test that did not wait for an idle period first.
+
+    Check:
+    `gcloud functions logs read reportBootFailure --project=gym-progress-ai-lcherouri --limit 20`
