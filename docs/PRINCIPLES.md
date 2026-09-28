@@ -2,17 +2,53 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-28 · A cache that stores what it was asked for will store a lie
+
+**Experience:** The blank-screen root cause was not "a chunk 404s" but "the cache believed it": Hosting answers a deleted asset with 200 `text/html`, and the worker wrote that response into the cache under the chunk's `.js` URL. Cache-first then replayed HTML into a module import on every load, and because the cache name never changed, no reload or redeploy could clear it. The fix guards both directions — a write needs `res.ok` plus a content type that matches the URL, and a *read* whose cached type does not match is deleted and refetched, so a client poisoned by the old worker heals on its next load. The v3→v4 bump evicts the rest. Verified by executing the real `sw.js` against fake caches; string assertions on the worker could not have caught the write-guard logic.
+
+**Reflection:** A cache keyed by URL but not validated by type will happily store a wrong-typed payload, and the mistake outlives the deploy that caused it. A cache-first strategy needs a read-side check, not just a write-side one, or yesterday's bad entry is served forever.
+
+**Distilled Principle:** Before caching a network response, assert both that it succeeded and that its content type is what that URL is supposed to return — on write *and* on read. Version the cache when the caching rules change, so old entries are evicted rather than trusted.
+
+**Next Experiment:** Confirm in the field that no `stage: "boot"` reports with a MIME/`Script failed to load` message appear after the v4 deploy; then consider serving `/assets/**` outside the catch-all so a deleted chunk fails honestly instead of as HTML.
+
+**Confidence:** Medium-High (the poisoning path was verified in the deployed rewrite and worker source, and the guard is behaviorally tested; no live device or real deploy observed yet)
+
+**Scope:** Project
+
+**Automation Opportunity:** Done — 20 behavioral tests in `tests/sw-cache-guard.test.ts` cover writes, reads, self-heal, offline, scope, and the version bump.
+
+---
+
+## 2026-09-28 · A blank screen should report itself
+
+**Experience:** The iPhone blank screen could only be diagnosed from a bug report and a borrowed device, because nothing in the app observed its own startup. The failures worth catching happen *before* React exists — a poisoned chunk, a MIME error, a syntax failure in the entry bundle — so a monitoring solution built from inside the app would be subject to the very failure it observes. A dependency-free IIFE is injected into `index.html` by `bootProbePlugin()` and installed above the entry module: it watches for a mount signal, catches `error`/`unhandledrejection`/failed script loads, and posts one deduped report to `reportBootFailure` with the build ID. `AppErrorBoundary.componentDidCatch` feeds render crashes back into the same channel.
+
+**Reflection:** Monitoring that imports a module cannot see a module that never ran, so the observer has to be the smallest possible thing in the page — no Firebase, no React, no shared import. The mount signal is deliberately deferred one frame: marking mounted synchronously after `render()` would make a crash on the first frame look like a healthy boot, which is the exact case being hunted.
+
+**Distilled Principle:** To catch a failure that happens before your code runs, the reporter must not depend on your code running. Install the observer from the HTML, mark success only after a painted frame, and make every report self-identifying (build ID) so a screenshot is evidence.
+
+**Next Experiment:** Watch the dedupe counts for a real deploy and tune the 15s mount timeout against observed healthy boots; add the sw.js cache-write guard (runbook item 1) so the poisoning window closes too.
+
+**Confidence:** Medium (mechanism is unit-tested and verified in the built HTML; the endpoint has not yet run against real traffic)
+
+**Scope:** Project
+
+**Automation Opportunity:** Done — 38 unit tests cover the schema, the probe contract, the accessor, and server-side normalization; 3 emulator tests assert no client can write or read `bootFailures`.
+
+---
+
 ## 2026-09-28 · Failure states need visible recovery paths
 
 **Experience:** Reviewing an iPhone (Chrome) blank-screen report — blank *after deploys* — found auth initialization already transitioned to an error state, but `App` rendered no content for that state. Render-time failures also had no React error boundary, so a thrown screen/lazy-load error could leave users with no recovery guidance. Added an accessible auth error with retry and a root boundary with a reload action; tests cover both the failure UI and auth retry.
 
-**Reflection:** A state machine can record failure correctly while the UI still appears blank if a state is not rendered. A recovery action must repeat the operation that failed (auth initialization retry) or give the user a safe reload path (render crash); neither catches failures before JavaScript boots. The deploy timing points at the deploy race: open clients lazily importing hashed chunks that the new deploy removed. `docs/BLANK-SCREEN-RUNBOOK.md` documents the audit, the device checklist, and remaining hardening (auto-reload-once, keep-previous-assets, iOS redirect sign-in).
+**Reflection:** A state machine can record failure correctly while the UI still appears blank if a state is not rendered. A recovery action must repeat the operation that failed (auth initialization retry) or give the user a safe reload path (render crash); neither catches failures before JavaScript boots. The deploy timing pointed at the real mechanism: a trailing Hosting catch-all returns 200 + `text/html` for a chunk a new deploy deleted, so `import()` fails on a MIME error — and because `sw.js` cached every same-origin response with no `res.ok`/content-type check, that HTML was written under the chunk's `.js` URL, making the failure permanent until site data was cleared. `docs/BLANK-SCREEN-RUNBOOK.md` documents the audit, the device checklist, and the hardening that closes it.
 
 **Distilled Principle:** For every user-visible loading/error state, test both the rendered explanation and the recovery action; use a root React error boundary for render failures, while separately investigating failures that happen before app boot.
 
-**Next Experiment:** Auto-reload-once on chunk-load failure and keeping the previous release's assets; browser-level startup monitoring if a device reproduces a pre-React blank screen.
+**Next Experiment:** Guard the service-worker cache write with `res.ok` + content type so a bad deploy cannot brick a client, then auto-reload-once on chunk-load failure; browser-level startup monitoring if a device reproduces a pre-React blank screen.
 
-**Confidence:** Low (one report and one code-path finding; no affected iPhone supplied for reproduction)
+**Confidence:** Medium (one report; the MIME-error and cache-poisoning mechanism is verified in the deployed config and worker source, but no affected device was available to confirm)
 
 **Scope:** Project
 
