@@ -1,0 +1,53 @@
+name: Purge liveness probe documents
+
+# The /__boot liveness monitor POSTs on a schedule, and every POST is a real
+# report: it writes a document to bootFailures. At the check's 15-minute period
+# that is ~96 documents a day, all identical apart from a dedupe window, and
+# they would drown the real signal in an operational collection meant to be
+# read by a human during an incident.
+#
+# This deletes them. It matches on the exact buildId "liveness-probe" and
+# nothing else — never a prefix, never a substring — so a real boot failure from
+# a real build can never be caught by it. functions/purge-boot-failures.mjs is
+# fail-closed (prints candidates, refuses a multi-document match, re-reads to
+# verify); this job exists only to call it.
+on:
+  schedule:
+    # 07:17 UTC rather than 07:00. GitHub queues scheduled runs and drops them
+    # under load; an off-minute job is measurably less likely to be skipped,
+    # and nothing about this task is time-sensitive.
+    - cron: "17 7 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  id-token: write
+
+jobs:
+  purge:
+    name: Delete liveness-probe boot reports
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Authenticate to Firestore with OIDC
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+          service_account: ${{ vars.FIREBASE_ADMIN_SERVICE_ACCOUNT }}
+      - name: Purge probe documents
+        env:
+          FIRESTORE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT }}
+        run: |
+          set -euo pipefail
+          cd functions
+          echo "--- before ---"
+          node list-boot-failures.mjs
+          # --confirm is required; without it the script refuses to write, which
+          # is the correct default and also the correct failure mode here.
+          node purge-boot-failures.mjs liveness-probe --confirm
+          echo "--- after ---"
+          node list-boot-failures.mjs
