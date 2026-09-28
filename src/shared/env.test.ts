@@ -32,4 +32,24 @@ describe("parseEnv", () => {
       expect((e as EnvError).missing).toContain("VITE_FIREBASE_APP_ID");
     }
   });
+
+  it("leaves appCheckSiteKey undefined when it is not configured", () => {
+    // App Check is opt-in: an unregistered environment must still boot.
+    expect(parseEnv(complete).appCheckSiteKey).toBeUndefined();
+  });
+
+  it("reads VITE_APP_CHECK_SITE_KEY when present", () => {
+    expect(
+      parseEnv({ ...complete, VITE_APP_CHECK_SITE_KEY: "site-key" }).appCheckSiteKey,
+    ).toBe("site-key");
+  });
+
+  it("treats an empty VITE_APP_CHECK_SITE_KEY as unset, not as a bad key", () => {
+    // Vite hands through empty strings from a commented-out .env line; feeding
+    // "" to ReCaptchaV3Provider would register a provider that can never mint
+    // a token.
+    expect(
+      parseEnv({ ...complete, VITE_APP_CHECK_SITE_KEY: "" }).appCheckSiteKey,
+    ).toBeUndefined();
+  });
 });

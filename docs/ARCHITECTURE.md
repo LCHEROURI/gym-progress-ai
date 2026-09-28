@@ -12,9 +12,9 @@ Two distinct Gemini paths exist, and the difference matters:
   GoogleAIBackend() })` in `src/coach/chat.ts`, `src/coach/explain.ts`, and
   `src/reports/observations.ts`. These run on the user's Firebase web app
   (Firebase AI Logic), not through a Cloud Function. No secret is exposed —
-  the browser only holds the referrer-restricted web API key — but the call is
-  a billable client-initiated request, which is why App Check is the missing
-  control here (AGENTS.md §5).
+  the  browser only holds the referrer-restricted web API key — but the call is
+  a billable client-initiated request, which is what App Check covers
+  (AGENTS.md §5).
 - **Server-side, via `@google/genai`** — the Sunday scheduled weekly report in
   `functions/src/index.ts` uses `GoogleGenAI` with `GEMINI_API_KEY` from Secret
   Manager. It is the only Gemini call in `functions/`, and there is no AI
@@ -33,7 +33,7 @@ flowchart TB
         Auth["Firebase Auth — Google sign-in"]
         FS[("Firestore — persistent offline cache")]
         Rules["Security rules: default deny, own uid"]
-        AC["App Check — NOT yet implemented"]
+        AC["App Check — reCAPTCHA v3, opt-in via VITE_APP_CHECK_SITE_KEY"]
     end
 
     subgraph Server["Cloud Functions (2nd gen) — Gemini via @google/genai"]
@@ -57,7 +57,7 @@ flowchart TB
     State -->|explain| EX --> CB
     UI -->|observations| OB --> CB
     WR -->|writes weeklyReports| FS
-    AC -.->|"the gate that would protect this"| AIV1
+    AC -.->|gates this| AIV1
     Secrets["Secret Manager: GEMINI_API_KEY"] --> Server
 ```
 
@@ -160,11 +160,18 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 
 - Identity: Firebase Auth on the client; verified ID tokens server-side. Path
   security by `request.auth.uid`; client-supplied uids are ignored.
-- App Check: **not implemented**. There is no App Check code anywhere, and no
-  client-facing AI callable. The gap that matters today is the client-side
-  `firebase/ai` path: any browser holding the web app config can drive a
-  billable Gemini request, and only a referrer restriction stands in the way.
-  Enforcing App Check closes that before more client-side AI ships.
+- App Check: initialized on the client by `src/data/app-check.ts` (reCAPTCHA
+  v3), awaited inside `initAuth` before Auth and Firestore are constructed so
+  the token exists before anything goes over the network. Opt-in — without
+  `VITE_APP_CHECK_SITE_KEY` nothing is initialized, and initialization can never
+  throw, so an unregistered environment or a blocked reCAPTCHA degrades to "no
+  token" rather than a dead app.
+- Two exclusions, both explicit in code. The **emulator** does not implement
+  App Check. **`/__boot`** cannot: its reporter is a dependency-free IIFE
+  inlined into `index.html` that has no SDK and therefore no token, so
+  `enforceAppCheck: false` on `reportBootFailure` is a written decision, not a
+  default. That endpoint is instead bounded by Zod length caps, an
+  allow-list that strips unknown fields, and a 10-minute dedupe window.
 - `GEMINI_API_KEY` exists only in Secret Manager and the Functions runtime.
 - Rules default-deny with shape validation; privileged writes only via Admin
   SDK.

@@ -54,9 +54,13 @@ See `docs/ARCHITECTURE.md` for the full design and diagrams. Summary:
 3. Enable **Authentication → Google** sign-in.
 4. Create the **Firestore** database (production mode; rules ship in this repo).
 5. Register a **Web app** and copy its config into `.env.local` (section 9).
-6. App Check: **not implemented** — the client never initializes it, so
-   registering the web app in the console changes nothing today. It becomes
-   real code when an AI callable is exposed to clients (AGENTS.md §5).
+6. Enable **App Check** (reCAPTCHA v3 provider) and register the web app, then
+   put the site key in `.env.local` as `VITE_APP_CHECK_SITE_KEY`. The client
+   initializes App Check in `src/data/app-check.ts`; without the key it skips
+   initialization and runs exactly as before, so this step is safe to do after
+   the first deploy. In the console, enforce App Check on **Firestore** and
+   **Authentication** — the client-side Gemini path (`firebase/ai` in
+   `src/coach/`) is billable from the browser and is the main reason to bother.
 7. When the project exists, record it in the bootstrap template's `apps.yml`
    registry (`LCHEROURI/universal-vibe-coding-bootstrap` — the file is not in
    this repository). The row is added only once its facts are real — never
@@ -137,6 +141,7 @@ caller has to be written before it can deploy anything.
 | `VITE_FIREBASE_STORAGE_BUCKET` | storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | sender id |
 | `VITE_FIREBASE_APP_ID` | web app id |
+| `VITE_APP_CHECK_SITE_KEY` | reCAPTCHA v3 site key for App Check. Optional: absent (or empty) means App Check is not initialized and the app runs unenforced. Get it from Firebase console → App Check → reCAPTCHA v3. |
 | `VITE_FCM_VAPID_KEY` | web push cert (Firebase console → Cloud Messaging → Web Push certificates). Optional: `src/reminders/push.ts` skips push with an explicit error naming this variable when it is missing, so reminders still work without it. |
 | `VITE_USE_EMULATOR` | `1` = point the SDKs at the emulators |
 

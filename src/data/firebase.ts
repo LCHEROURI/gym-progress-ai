@@ -2,6 +2,7 @@ import type { FirebaseApp } from "firebase/app";
 import type { Auth } from "firebase/auth";
 import type { Firestore } from "firebase/firestore";
 import type { AppEnv } from "../shared/env";
+import { initAppCheck } from "./app-check";
 
 export interface FirebaseAuthServices {
   app: FirebaseApp;
@@ -25,7 +26,7 @@ let servicesPromise: Promise<FirebaseServices> | null = null;
 export function initAuth(env: AppEnv): Promise<FirebaseAuthServices> {
   if (!authPromise) {
     authPromise = Promise.all([import("firebase/app"), import("firebase/auth")])
-      .then(([appSdk, authSdk]) => {
+      .then(async ([appSdk, authSdk]) => {
         const app =
           appSdk.getApps()[0] ??
           appSdk.initializeApp({
@@ -36,6 +37,10 @@ export function initAuth(env: AppEnv): Promise<FirebaseAuthServices> {
             messagingSenderId: env.messagingSenderId,
             appId: env.appId,
           });
+        // App Check first, Auth and Firestore second. The token is attached at
+        // request time, so anything that goes over the network has to be created
+        // after this resolves. It is awaited but cannot reject: see ./app-check.
+        await initAppCheck(app, env);
         const auth = authSdk.getAuth(app);
         if (env.useEmulator) {
           authSdk.connectAuthEmulator(auth, "http://127.0.0.1:9099", {

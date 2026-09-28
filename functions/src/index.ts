@@ -224,11 +224,25 @@ export const sendWorkoutReminders = onSchedule(
  * Anonymous by necessity: a pre-React failure has no authenticated session.
  * Reports carry no user data — no uid, email, or workout fields — and the
  * verified token, when one exists, is read for uid only and never trusted from
- * the body. Identity is NOT required, so this is a public write path: it is
- * rate-limited by dedupe, length-capped by the Zod schema, and App Check is
- * not enforced here because a broken app shell frequently cannot complete the
- * App Check handshake. That trade is deliberate and is called out in the
- * runbook's threat notes.
+ * the body. Identity is NOT required, so this is a public write path.
+ *
+ * App Check is deliberately NOT enforced here, and the platform does not let us
+ * ask for it: `enforceAppCheck` is a `CallableOptions` field, and
+ * `onRequest` takes `HttpsOptions`, which `Omit`s it (see
+ * firebase-functions/lib/v2/providers/https.d.ts). Enforcing App Check on a
+ * raw HTTPS function means verifying the token by hand in the handler, which
+ * would be a decision to revisit, not a flag to flip.
+ *
+ * We would not want it anyway. The probe is a dependency-free IIFE inlined into
+ * index.html: it cannot import the App Check SDK, so it cannot hold a token, so
+ * enforcement would reject precisely the poisoned-chunk and MIME failures this
+ * endpoint exists to observe. The controls that do apply here are the Zod
+ * length caps, the allow-list that strips unknown fields, the 10-minute dedupe
+ * window, and the fact that a report costs one small document. Every other
+ * Firebase surface — Auth, Firestore, and the client-side Gemini path in
+ * src/coach — IS App Check covered; see src/data/app-check.ts. Blanking this
+ * endpoint would trade observability of the worst failure for protection of the
+ * least interesting one, so the trade is written down instead of silently taken.
  */
 export const reportBootFailure = onRequest(
   {

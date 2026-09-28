@@ -16,6 +16,15 @@ const KEYS: Record<string, string> = {
   VITE_FIREBASE_APP_ID: "appId",
 };
 
+/**
+ * Optional keys, mapped to their schema name. Optional is the point: a
+ * registration step in the Firebase console must never be a boot-blocking
+ * requirement for a developer or for CI. Each one degrades to a named no-op.
+ */
+const OPTIONAL_KEYS: Record<string, string> = {
+  VITE_APP_CHECK_SITE_KEY: "appCheckSiteKey",
+};
+
 const schema = z.object({
   apiKey: z.string().min(1),
   authDomain: z.string().min(1),
@@ -23,6 +32,8 @@ const schema = z.object({
   storageBucket: z.string().min(1),
   messagingSenderId: z.string().min(1),
   appId: z.string().min(1),
+  /** reCAPTCHA v3 site key for App Check; absent means "do not initialize". */
+  appCheckSiteKey: z.string().min(1).optional(),
   useEmulator: z.boolean(),
 });
 
@@ -34,5 +45,11 @@ export function parseEnv(raw: Record<string, string | undefined>): AppEnv {
   const flat = Object.fromEntries(
     Object.entries(KEYS).map(([k, v]) => [v, raw[k] as string]),
   );
-  return schema.parse({ ...flat, useEmulator: raw.VITE_USE_EMULATOR === "1" });
+  const optional = Object.fromEntries(
+    Object.entries(OPTIONAL_KEYS)
+      .map(([k, v]) => [v, raw[k]])
+      // An empty string is "unset", not "configured with an empty key".
+      .filter(([, value]) => Boolean(value)),
+  );
+  return schema.parse({ ...flat, ...optional, useEmulator: raw.VITE_USE_EMULATOR === "1" });
 }
