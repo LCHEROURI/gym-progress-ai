@@ -1,0 +1,192 @@
+name: Deploy hosting
+
+# Caller for .github/workflows/firebase-hosting-reusable.yml, which until now
+# had no caller and therefore could not deploy anything.
+#
+# Three deliberate choices, each one a guard against a failure this repository
+# has already had:
+#
+#  1. `npm run check` gates the deploy, not just `npm run build`. The reusable
+#     workflow builds and deploys in one job with no test step, so a merge that
+#     typechecks but fails 400 tests would still publish. The blank-screen
+#     incident was a bad deploy shipping; the cheapest defense is not shipping
+#     from a red build.
+#
+#  2. Hosting only. Functions, rules, and indexes deploy via `npm run deploy`
+#     from a machine with credentials. Putting a WIF-authenticated functions
+#     deploy here would make a single merge rewrite security rules unattended.
+#
+#  3. Every value that identifies infrastructure comes from repository
+#     variables, not literals, so the same workflow file works if the project is
+#     ever recreated and no secret is ever committed. Missing configuration
+#     fails the job with an explicit message instead of deploying to the wrong
+#     place.
+# No `workflow_dispatch` here, deliberately. The reusable workflow selects its
+# job by event name — `preview` for pull_request, `production` for a push to
+# main — so a manual dispatch would match neither and the run would report
+# success having deployed nothing. A silent no-op deploy is worse than no
+# button: if a manual deploy is ever wanted, gate the push trigger behind a
+# GitHub Environment with a required reviewer instead.
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+# One deploy per ref. Without this, a burst of pushes to main races several
+# deploys of the same site, and the loser's asset hashes can overwrite the
+# winner's — a self-inflicted version of the deploy race in
+# docs/BLANK-SCREEN-RUNBOOK.md. Not cancel-in-progress: cancelling a deploy
+# that already started uploading can leave the site with a partial asset set.
+concurrency:
+  group: deploy-hosting-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  # Fails first and cheaply, with a message that says what to configure. The
+  # reusable workflow would otherwise fail deep inside the OIDC step with a
+  # 401 that reads like a permissions bug rather than a missing variable.
+  preflight:
+    name: Check deploy configuration
+    runs-on: ubuntu-latest
+    outputs:
+      project: ${{ steps.vars.outputs.project }}
+      service_account: ${{ steps.vars.outputs.service_account }}
+      provider: ${{ steps.vars.outputs.provider }}
+    steps:
+      - id: vars
+        env:
+          FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
+          DEPLOYER_SA: ${{ vars.FIREBASE_DEPLOYER_SERVICE_ACCOUNT }}
+          WIF_PROVIDER: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
+        run: |
+          set -euo pipefail
+          missing=()
+          [ -n "${FIREBASE_PROJECT}" ]   || missing+=("FIREBASE_PROJECT")
+          [ -n "${DEPLOYER_SA}" ]        || missing+=("FIREBASE_DEPLOYER_SERVICE_ACCOUNT")
+          [ -n "${WIF_PROVIDER}" ]       || missing+=("WORKLOAD_IDENTITY_PROVIDER")
+          if [ ${#missing[@]} -gt 0 ]; then
+            echo "::error::Missing repository variables (Settings → Secrets and variables → Actions → Variables): ${missing[*]}"
+            echo "::error::These are set-up steps, not code. See docs/DEPLOY-CI.md."
+            exit 1
+          fi
+          {
+            echo "project=${FIREBASE_PROJECT}"
+            echo "service_account=${DEPLOYER_SA}"
+            echo "provider=${WIF_PROVIDER}"
+          } >> "$GITHUB_OUTPUT"
+
+  verify:
+    name: Green gate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install dependencies
+        run: npm ci
+      - name: Typecheck, lint, test, build
+        run: npm run check
+
+  deploy:
+    name: Deploy (reusable workflow)
+    needs: [preflight, verify]
+    # The reusable workflow picks its own job by event name: `preview` for
+    # pull_request, `production` for a push to main. Passing `github.event_name`
+    # through is what selects between them.
+    uses: ./.github/workflows/firebase-hosting-reusable.yml
+    with:
+      firebase-project: ${{ needs.preflight.outputs.project }}
+      firebase-service-account: ${{ needs.preflight.outputs.service_account }}
+      workload-identity-provider: ${{ needs.preflight.outputs.provider }}
+      # "npm run build" rather than the default "auto": auto would fall back to
+      # generating a placeholder index.html if the build script were ever
+      # renamed, which would quietly replace the real app with a stub page.
+      build-command: npm run build
+      # The functions runtime is nodejs22; matching it keeps the client build on
+      # the same Node the rest of the pipeline uses.
+      node-version: '22'
+    # The reusable workflow declares its own permissions block, but a called
+    # workflow cannot widen beyond the caller, so id-token: write must be
+    # granted here or the OIDC exchange fails at runtime.
+    permissions:
+      contents: read
+      checks: write
+      id-token: write
+      pull-requests: write
+
+  # Runs after the reusable workflow returns, so it observes the site as users
+  # will. These are the exact checks in docs/BLANK-SCREEN-RUNBOOK.md that were
+  # run by hand after the blank-screen fix, and the missing-asset 404 is the one
+  # that matters: it is the difference between an honest failure and a cached
+  # HTML shell that bricks an iPhone until site data is cleared.
+  smoke:
+    name: Post-deploy smoke check
+    # `deploy` is a reusable-workflow call, and a call job does not re-export
+    # another job's outputs. Without listing `preflight` here, `SITE` expands to
+    # the empty string and every curl fails on an unresolvable host — which is
+    # exactly what the first verification run did.
+    needs: [preflight, deploy]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Assert hosting routing survived the deploy
+        env:
+          SITE: ${{ needs.preflight.outputs.project }}
+        run: |
+          set -euo pipefail
+          # An empty SITE makes every curl below fail on an unresolvable host,
+          # which reads as a deploy problem instead of a wiring problem. Fail
+          # loudly on the empty case instead.
+          if [ -z "${SITE}" ]; then
+            echo "::error::SITE is empty; the preflight outputs are not reaching this job"
+            exit 1
+          fi
+          SITE="https://${SITE}.web.app"
+          echo "checking $SITE"
+          fail=0
+
+          check() { # name expected actual
+            if [ "$2" != "$3" ]; then
+              echo "::error::$1: expected $2, got $3"
+              fail=1
+            else
+              echo "ok: $1 ($3)"
+            fi
+          }
+
+          # A deleted chunk must 404. If this returns 200 text/html, the SPA
+          # rewrite swallowed it and the service worker can cache the shell
+          # under a .js URL again — the original incident.
+          missing=$(curl -s -o /dev/null -w '%{http_code}' "$SITE/assets/does-not-exist.js")
+          check "missing asset 404s" 404 "$missing"
+
+          # An SPA route must still serve the shell, or deep links break.
+          spa=$(curl -s -o /dev/null -w '%{http_code}' "$SITE/history")
+          check "SPA route 200" 200 "$spa"
+
+          # A real asset must be served as JavaScript, not text/html.
+          asset=$(curl -s "$SITE/" | grep -o '/assets/index-[A-Za-z0-9_-]*\.js' | head -1)
+          if [ -z "$asset" ]; then
+            echo "::error::could not find an entry chunk in the deployed index.html"
+            exit 1
+          fi
+          ctype=$(curl -s -o /dev/null -w '%{content_type}' "$SITE$asset")
+          case "$ctype" in
+            *javascript*) echo "ok: entry chunk served as $ctype" ;;
+            *) echo "::error::entry chunk $asset served as $ctype, expected JavaScript"; fail=1 ;;
+          esac
+
+          # The boot-report rewrite must be routed to the Function, and the
+          # Function must answer. A 500 here is the cold-start OOM that shipped
+          # in PR #6; an empty collection is not evidence the intake works.
+          boot=$(curl -s -o /dev/null -w '%{http_code}' -X POST "$SITE/__boot" \
+            -H 'Content-Type: text/plain' \
+            --data "{\"buildId\":\"ci-smoke-${{ github.run_id }}\",\"stage\":\"boot\",\"message\":\"CI post-deploy liveness\"}")
+          check "boot intake 202" 202 "$boot"
+
+          exit $fail
