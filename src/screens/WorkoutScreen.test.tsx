@@ -47,6 +47,7 @@ describe("WorkoutScreen (gym clipboard)", () => {
   it("shows progress and the previous weight", () => {
     renderScreen();
     expect(screen.getByText("0 of 7 complete")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: "Workout completion" })).toHaveValue(0);
     expect(screen.getByText("LAST: 70 LB")).toBeInTheDocument();
   });
 
@@ -94,5 +95,30 @@ describe("WorkoutScreen (gym clipboard)", () => {
   it("shows the OFFLINE badge", () => {
     renderScreen({ syncState: "offline" });
     expect(screen.getByText("OFFLINE")).toBeInTheDocument();
+  });
+
+  it("shows completion on the workout progress bar", () => {
+    const completed = exercises.map((exercise, index) =>
+      index < 2 ? { ...exercise, completed: true } : exercise,
+    );
+    renderScreen({ exercises: completed });
+    expect(screen.getByRole("progressbar", { name: "Workout completion" })).toHaveValue(2);
+  });
+
+  it("skips a saved exercise missing from the current template without crashing", () => {
+    const orphan = { ...exercises[0]!, exerciseKey: "removed-from-template" };
+    renderScreen({ exercises: [orphan] });
+
+    expect(screen.getByRole("button", { name: "FINISH WORKOUT" })).toBeInTheDocument();
+    expect(screen.queryByText("Bike Warm-up")).toBeNull();
+  });
+
+  it("uses the selected weight unit in the input label", () => {
+    const kgExercises = exercises.map((exercise) => ({
+      ...exercise,
+      weightUnit: "kg" as const,
+    }));
+    renderScreen({ exercises: kgExercises });
+    expect(screen.getAllByLabelText("Today's weight in kg").length).toBeGreaterThan(0);
   });
 });

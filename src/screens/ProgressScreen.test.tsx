@@ -43,23 +43,29 @@ describe("ProgressScreen", () => {
   it("shows totals and the personal record", async () => {
     render(<ProgressScreen db={{} as never} uid="u1" />);
     expect(await screen.findByText("PERSONAL BEST")).toBeInTheDocument();
-    expect(screen.getByText("LEG PRESS")).toBeInTheDocument();
-    expect(screen.getByText(/80 LB/)).toBeInTheDocument();
+    expect(screen.getAllByText("Leg Press")).toHaveLength(2);
+    expect(screen.getByText("80")).toBeInTheDocument();
     expect(screen.getByText("Total workouts:")).toBeInTheDocument();
     expect(screen.getByText("Total cardio minutes:")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Exercise progress" })).toBeInTheDocument();
+    expect(screen.getByText("Started")).toBeInTheDocument();
+    expect(screen.getByText("Now")).toBeInTheDocument();
+    expect(screen.getByText("Best")).toBeInTheDocument();
   });
 
   it("shows the exercise trend row", async () => {
     render(<ProgressScreen db={{} as never} uid="u1" />);
     expect(await screen.findByText("↑ UP")).toBeInTheDocument();
-    expect(screen.getByText(/Start 75 lb → Current 80 lb/)).toBeInTheDocument();
+    expect(screen.getByText("75 lb")).toBeInTheDocument();
+    expect(screen.getAllByText("80 lb")).toHaveLength(2);
+    expect(screen.getByText(/Latest 80 lb · good/)).toBeInTheDocument();
   });
 
   it("invites action when there is no history", async () => {
     mocks.fetchProgressFacts.mockResolvedValueOnce({ sessions: [], exercises: [] });
     render(<ProgressScreen db={{} as never} uid="u1" />);
     expect(
-      await screen.findByText(/No personal records yet — they appear after your first logged weight/),
+      await screen.findByText(/Your first logged weight starts the record book/),
     ).toBeInTheDocument();
   });
 });

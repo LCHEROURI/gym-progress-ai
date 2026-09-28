@@ -48,23 +48,41 @@ export default function HistoryScreen({ db, uid }: { db: Firestore; uid: string 
 
   return (
     <section aria-label="History">
-      <h2 className="workoutName">HISTORY</h2>
+      <header className="screenHeader">
+        <p className="screenKicker">YOUR TRAINING</p>
+        <h2 className="workoutName">History</h2>
+        <p className="screenIntro">Every session, saved in order.</p>
+      </header>
       {error && <p role="alert">{error}</p>}
       {rows === null && <p>Loading…</p>}
-      {rows?.length === 0 && <p className="recoveryCopy">No workouts yet. Your first one starts today.</p>}
-      <ul className="cardList">
+      {rows?.length === 0 && (
+        <div className="emptyPanel">
+          <span className="emptyMark" aria-hidden="true">↗</span>
+          <h3>Your log starts here</h3>
+          <p>No workouts yet. Your first one starts today.</p>
+        </div>
+      )}
+      <ul className="cardList historyList">
         {rows?.map((r) => {
           const { stamp, weekday } = formatRowDate(r.scheduledDate);
           return (
-            <li key={r.id} className="exerciseCard">
-              <button type="button" className="rowButton" onClick={() => open(r.id)}>
-                <span className="historyStamp">{stamp}</span>
-                <span className="historyMeta">
-                  {weekday} · {nameForType(r.workoutType)}
+            <li key={r.id} className="historyEntry">
+              <button type="button" className="historyButton" onClick={() => open(r.id)}>
+                <span className="historyDate">
+                  <span className="historyWeekday">{weekday.slice(0, 3)}</span>
+                  <span className="historyDay">{stamp.split(" ")[1]}</span>
+                  <span className="historyMonth">{stamp.split(" ")[0]}</span>
                 </span>
-                <span className="exerciseTarget">
-                  {r.exercisesDone}/{r.exercisesTotal} completed
+                <span className="historyDetails">
+                  <span className="historyMeta">{nameForType(r.workoutType)}</span>
+                  <span className="historyCompletion">
+                    {r.exercisesDone} of {r.exercisesTotal} exercises
+                  </span>
                 </span>
+                <span className={`historyResult${r.exercisesDone === r.exercisesTotal ? " isComplete" : ""}`}>
+                  {r.exercisesDone}/{r.exercisesTotal}
+                </span>
+                <span className="historyChevron" aria-hidden="true">›</span>
               </button>
             </li>
           );
@@ -85,13 +103,14 @@ function HistoryDetail({ detail, onBack }: { detail: HistoryDetail; onBack: () =
 
   return (
     <section aria-label="Workout detail">
-      <button type="button" onClick={onBack}>
-        ← BACK
+      <button type="button" className="backButton" onClick={onBack}>
+        <span aria-hidden="true">←</span> All workouts
       </button>
-      <h2 className="workoutName">
-        {stamp} · {weekday}
-      </h2>
-      <p className="dateLine">{nameForType(detail.session.workoutType)}</p>
+      <header className="screenHeader detailHeader">
+        <p className="screenKicker">{weekday} · {stamp}</p>
+        <h2 className="workoutName">{nameForType(detail.session.workoutType)}</h2>
+        <p className="screenIntro">Your recorded exercises from this session.</p>
+      </header>
       <ul className="cardList">
         {detail.exercises.map((e) => (
           <li key={e.exerciseKey} className="exerciseCard">
@@ -99,15 +118,15 @@ function HistoryDetail({ detail, onBack }: { detail: HistoryDetail; onBack: () =
               <span className="exerciseName">{e.exerciseName}</span>
               <span className="exerciseTarget">{e.completed ? "✓" : "—"}</span>
             </div>
-            <p className="lastTime">
+            <p className="historyExerciseResult">
               {e.weightUsed !== null ? `${e.weightUsed} ${e.weightUnit ?? "LB"}` : `${e.durationMinutes ?? 0} min`}
               {e.difficulty ? ` · ${e.difficulty.toUpperCase()}` : ""}
               {e.painStatus && e.painStatus !== "none" ? ` · PAIN: ${e.painStatus.toUpperCase()}` : ""}
             </p>
-            <p className="tip">
+            <p className="tip historySets">
               {(setsByKey.get(e.exerciseKey) ?? [])
                 .map((s) => `${s.reps} reps`)
-                .join(" / ") || "No sets logged"}
+                .join(" · ") || "No sets logged"}
             </p>
             {e.notes && <p className="tip">{e.notes}</p>}
           </li>

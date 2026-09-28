@@ -1,16 +1,19 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { render, screen } from "@testing-library/react";
+import { fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
+const authSession = vi.hoisted(() => ({
+  user: null as { uid: string; email: string | null } | null,
+  state: "ready" as "loading" | "ready" | "error",
+  error: null as string | null,
+  signIn: vi.fn(),
+  signOut: vi.fn(),
+  retry: vi.fn(),
+}));
+
 vi.mock("./auth/useAuthSession", () => ({
-  useAuthSession: () => ({
-    user: null,
-    state: "ready",
-    error: null,
-    signIn: vi.fn(),
-    signOut: vi.fn(),
-  }),
+  useAuthSession: () => authSession,
 }));
 
 import App from "./App";
@@ -31,7 +34,13 @@ function stubIphoneSafari() {
   }));
 }
 
-beforeEach(() => localStorage.clear());
+beforeEach(() => {
+  localStorage.clear();
+  authSession.user = null;
+  authSession.state = "ready";
+  authSession.error = null;
+  authSession.retry.mockClear();
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("App", () => {
@@ -39,6 +48,17 @@ describe("App", () => {
     render(<App />);
     expect(screen.getByRole("heading", { level: 1 })).toHaveTextContent("Gym Progress AI");
     expect(screen.getByRole("button", { name: "Continue with Google" })).toBeEnabled();
+  });
+
+  it("shows an actionable retry when auth initialization fails", () => {
+    authSession.state = "error";
+    authSession.error = "Could not reach sign-in. Check your connection and try again.";
+    render(<App />);
+
+    expect(screen.getByRole("heading", { name: "Sign-in unavailable" })).toBeInTheDocument();
+    expect(screen.getByRole("alert")).toHaveTextContent("Check your connection and try again.");
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(authSession.retry).toHaveBeenCalledOnce();
   });
 
   it("shows the one-time iOS install nudge before login", () => {

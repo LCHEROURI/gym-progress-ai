@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 
+const buildId = new Date().toISOString().replace(/[-:TZ.]/g, "").slice(0, 12);
+
 function firebaseChunk(id: string): string | undefined {
   if (!id.includes("/node_modules/")) return undefined;
 
@@ -17,6 +19,9 @@ function firebaseChunk(id: string): string | undefined {
 
 export default defineConfig({
   plugins: [react()],
+  define: {
+    __APP_BUILD_ID__: JSON.stringify(buildId),
+  },
   build: {
     rollupOptions: {
       output: { manualChunks: firebaseChunk },

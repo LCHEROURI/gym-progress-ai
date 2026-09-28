@@ -32,20 +32,22 @@ beforeEach(() => {
 describe("HistoryScreen", () => {
   it("lists past sessions with date, weekday, name, and counts", async () => {
     render(<HistoryScreen db={{} as never} uid="u1" />);
-    expect(await screen.findByText("SEP 23")).toBeInTheDocument();
-    expect(screen.getByText(/Wednesday · Balance \+ Strength/)).toBeInTheDocument();
-    expect(screen.getByText("8/8 completed")).toBeInTheDocument();
+    expect(await screen.findByText("23")).toBeInTheDocument();
+    expect(screen.getByText("SEP")).toBeInTheDocument();
+    expect(screen.getByText("Balance + Strength")).toBeInTheDocument();
+    expect(screen.getByText("8 of 8 exercises")).toBeInTheDocument();
+    expect(screen.getByText("8/8")).toBeInTheDocument();
   });
 
   it("opens the detail view and goes back", async () => {
     render(<HistoryScreen db={{} as never} uid="u1" />);
-    fireEvent.click(await screen.findByText(/Wednesday · Balance \+ Strength/));
+    fireEvent.click(await screen.findByRole("button", { name: /Balance \+ Strength/ }));
     await waitFor(() => {
       expect(mocks.fetchHistoryDetail).toHaveBeenCalledWith({ db: {} }, "u1", "s1");
     });
-    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("SEP 23");
+    expect(screen.getByRole("heading", { level: 2 })).toHaveTextContent("Balance + Strength");
     expect(screen.getAllByRole("listitem")).toHaveLength(8);
-    fireEvent.click(screen.getByRole("button", { name: "← BACK" }));
-    expect(await screen.findByText("8/8 completed")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /All workouts/ }));
+    expect(await screen.findByText("8 of 8 exercises")).toBeInTheDocument();
   });
 });

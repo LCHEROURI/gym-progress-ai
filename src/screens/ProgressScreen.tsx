@@ -41,12 +41,16 @@ export default function ProgressScreen({ db, uid }: { db: Firestore; uid: string
 
   return (
     <section aria-label="Progress">
-      <h2 className="workoutName">PROGRESS</h2>
+      <header className="screenHeader">
+        <p className="screenKicker">YOUR TRAINING</p>
+        <h2 className="workoutName">Progress</h2>
+        <p className="screenIntro">A clear view of the work you’ve put in.</p>
+      </header>
       {error && <p role="alert">{error}</p>}
       {loaded === null && !error && <p>Loading…</p>}
       {loaded && (
         <>
-          <dl className="summaryList">
+          <dl className="summaryList progressStats">
             <div>
               <dt>Total workouts:</dt>
               <dd>{loaded.stats.totalWorkouts}</dd>
@@ -71,43 +75,65 @@ export default function ProgressScreen({ db, uid }: { db: Firestore; uid: string
             </div>
           </dl>
 
-          <h3 className="sectionTitle">PERSONAL RECORDS</h3>
-          {loaded.prs.length === 0 && (
-            <p className="recoveryCopy">
-              No personal records yet — they appear after your first logged weight.
-            </p>
-          )}
-          <ul className="cardList">
-            {loaded.prs.map((pr) => (
-              <li key={pr.exerciseKey} className="exerciseCard prCard">
-                <span className="prTag">PERSONAL BEST</span>
-                <span className="exerciseName">{pr.exerciseName.toUpperCase()}</span>
-                <span className="exerciseTarget">
-                  {pr.weight} LB · {pr.achievedAt}
-                </span>
-              </li>
-            ))}
-          </ul>
-
-          <h3 className="sectionTitle">EXERCISE PROGRESS</h3>
-          <ul className="cardList">
-            {loaded.rows.map((row) => (
-              <li key={row.exerciseKey} className="exerciseCard">
-                <div className="cardTop">
-                  <span className="exerciseName">{row.exerciseName}</span>
-                  <span className="exerciseTarget">
-                    {row.trend === "up" ? "↑ UP" : row.trend === "down" ? "↓ DOWN" : "→ FLAT"}
+          <section className="screenSection" aria-labelledby="records-heading">
+            <div className="sectionHeading">
+              <div>
+                <p className="sectionEyebrow">MILESTONES</p>
+                <h3 id="records-heading">Personal records</h3>
+              </div>
+              <span className="sectionCount">{loaded.prs.length}</span>
+            </div>
+            {loaded.prs.length === 0 && (
+              <p className="emptyHint">
+                Your first logged weight starts the record book. Keep showing up.
+              </p>
+            )}
+            <ul className="cardList recordList">
+              {loaded.prs.map((pr) => (
+                <li key={pr.exerciseKey} className="exerciseCard prCard">
+                  <span className="prTag">PERSONAL BEST</span>
+                  <span className="exerciseName">{pr.exerciseName}</span>
+                  <span className="prWeight">
+                    {pr.weight} <span>LB</span>
                   </span>
-                </div>
-                <p className="lastTime">
-                  Start {row.startingWeight} lb → Current {row.currentWeight} lb · Best{" "}
-                  {row.highestWeight} lb · {row.totalSessions} sessions
-                </p>
-                <p className="tip">Latest: {row.latestResult}</p>
-                <Sparkline points={row.points} />
-              </li>
-            ))}
-          </ul>
+                  <span className="exerciseTarget">Set on {pr.achievedAt}</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+
+          <section className="screenSection" aria-labelledby="exercise-progress-heading">
+            <div className="sectionHeading">
+              <div>
+                <p className="sectionEyebrow">BY MOVEMENT</p>
+                <h3 id="exercise-progress-heading">Exercise progress</h3>
+              </div>
+              <span className="sectionCount">{loaded.rows.length}</span>
+            </div>
+            <ul className="cardList progressList">
+              {loaded.rows.map((row) => (
+                <li key={row.exerciseKey} className="exerciseCard">
+                  <div className="cardTop">
+                    <span className="exerciseName">{row.exerciseName}</span>
+                    <span className={`trendPill trend-${row.trend}`}>
+                      {row.trend === "up" ? "↑ UP" : row.trend === "down" ? "↓ DOWN" : "→ FLAT"}
+                    </span>
+                  </div>
+                  <div className="progressMeasures" role="group" aria-label={`${row.exerciseName} weights`}>
+                    <p><span>Started</span><strong>{row.startingWeight} lb</strong></p>
+                    <p><span>Now</span><strong>{row.currentWeight} lb</strong></p>
+                    <p><span>Best</span><strong>{row.highestWeight} lb</strong></p>
+                  </div>
+                  <div className="progressFoot">
+                    <p className="tip">
+                      {row.totalSessions} {row.totalSessions === 1 ? "session" : "sessions"} · Latest {row.latestResult}
+                    </p>
+                    <Sparkline points={row.points} />
+                  </div>
+                </li>
+              ))}
+            </ul>
+          </section>
         </>
       )}
     </section>
