@@ -112,6 +112,21 @@ jobs:
         env:
           FIREBASE_PROJECT: ${{ inputs.firebase-project }}
           FIREBASE_TARGET: ${{ inputs.firebase-target }}
+          # The same VITE_* values the build step uses, and for a less obvious
+          # reason. `firebase deploy --only hosting` runs the `hosting.predeploy`
+          # hook (see firebase.json), which is `npm run build` again — and that
+          # hook runs inside THIS step, not the build step. Without these here
+          # the hook rebuilds dist/ with no config and overwrites the correct
+          # bundle before it is uploaded, which shipped a live app that threw on
+          # first render while every build-time check passed.
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_APP_CHECK_SITE_KEY: ${{ vars.VITE_APP_CHECK_SITE_KEY }}
+          VITE_FCM_VAPID_KEY: ${{ vars.VITE_FCM_VAPID_KEY }}
         run: |
           if [ -n "$FIREBASE_TARGET" ]; then
             npx -y firebase-tools@latest hosting:channel:deploy "pr-${{ github.event.pull_request.number }}" --only "$FIREBASE_TARGET" --expires 7d --project "$FIREBASE_PROJECT" --json
@@ -179,6 +194,21 @@ jobs:
         env:
           FIREBASE_PROJECT: ${{ inputs.firebase-project }}
           FIREBASE_TARGET: ${{ inputs.firebase-target }}
+          # The same VITE_* values the build step uses, and for a less obvious
+          # reason. `firebase deploy --only hosting` runs the `hosting.predeploy`
+          # hook (see firebase.json), which is `npm run build` again — and that
+          # hook runs inside THIS step, not the build step. Without these here
+          # the hook rebuilds dist/ with no config and overwrites the correct
+          # bundle before it is uploaded, which shipped a live app that threw on
+          # first render while every build-time check passed.
+          VITE_FIREBASE_API_KEY: ${{ vars.VITE_FIREBASE_API_KEY }}
+          VITE_FIREBASE_AUTH_DOMAIN: ${{ vars.VITE_FIREBASE_AUTH_DOMAIN }}
+          VITE_FIREBASE_PROJECT_ID: ${{ vars.VITE_FIREBASE_PROJECT_ID }}
+          VITE_FIREBASE_STORAGE_BUCKET: ${{ vars.VITE_FIREBASE_STORAGE_BUCKET }}
+          VITE_FIREBASE_MESSAGING_SENDER_ID: ${{ vars.VITE_FIREBASE_MESSAGING_SENDER_ID }}
+          VITE_FIREBASE_APP_ID: ${{ vars.VITE_FIREBASE_APP_ID }}
+          VITE_APP_CHECK_SITE_KEY: ${{ vars.VITE_APP_CHECK_SITE_KEY }}
+          VITE_FCM_VAPID_KEY: ${{ vars.VITE_FCM_VAPID_KEY }}
         run: |
           if [ -n "$FIREBASE_TARGET" ]; then
             npx -y firebase-tools@latest deploy --only "hosting:$FIREBASE_TARGET" --project "$FIREBASE_PROJECT" --json
