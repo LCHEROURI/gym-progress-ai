@@ -125,6 +125,32 @@ instead of creating documents.
    message confirms the same root cause the audit found, now self-reported.
 4. High `count` on one key = many devices, one bad deploy — not a device quirk.
 
+**Before reading them, confirm the endpoint is alive.** An empty collection
+means one of three very different things: no failures, a broken intake, or a
+broken deployment. Check the transport, not the collection:
+
+```bash
+curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+  https://gym-progress-ai-lcherouri.web.app/__boot \
+  -H 'Content-Type: text/plain' \
+  --data '{"buildId":"probe","stage":"boot","message":"liveness check"}'
+```
+
+Expect `202`. A `500` means the Function is not serving — check
+`gcloud functions logs read reportBootFailure --project gym-progress-ai-lcherouri`
+before concluding the app is healthy. See the cold-start trap below.
+
+> **Cold-start trap (found 2026-09-28).** `reportBootFailure` shipped at
+> `memory: "128MiB"`, which the runtime OOM-kills on every cold start: the
+> instance died at 141 MiB with *"Memory limit of 128 MiB exceeded"* **before the
+> handler ran**, so the 202-on-write-failure path could not help. Because the
+> function scales to zero, the first request after idle got a 500 while a burst
+> against one warm instance succeeded — which is exactly the shape of bug a smoke
+> test misses, and the smoke test did pass. Now `256MiB`, matching the scheduled
+> functions. Local module load alone measures ~81 MiB RSS, so 128 MiB left no
+> headroom for runtime overhead. Lesson recorded here: verify monitoring by
+> curling it after an idle period, not only right after a deploy.
+
 **Caveats, stated honestly:** the endpoint is a public write path (no App
 Check, no auth — a broken shell often cannot complete either handshake), so
 the length caps, field allow-list, and dedupe window are the real defenses. A
@@ -132,6 +158,13 @@ the length caps, field allow-list, and dedupe window are the real defenses. A
 phones produce false positives, raise `BOOT_MOUNT_TIMEOUT_MS` in
 `src/shared/boot-probe.ts`. Reports carry no user data by design, and a failed
 write still returns 202 so a broken client never retry-storms.
+
+**Purging test reports:** `node functions/purge-boot-failures.mjs <exact-buildId> --confirm`
+deletes by exact `buildId` only, prints every candidate before writing, refuses
+an empty or multi-document match, and re-reads to verify. `functions/list-boot-failures.mjs`
+is the read-only inventory. Both need Application Default Credentials against
+the real project, and they live in `functions/` because that is where
+`firebase-admin` is installed.
 
 ## Paper triage (no device available)
 
