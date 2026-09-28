@@ -269,3 +269,41 @@ rules whitelist, and emulator tests ship in the same deploy.
 3. Client, Functions, and rules update in the same deploy.
 4. History collections (`workoutSessions` and below) are append-only — a
   migration never rewrites past workouts (AGENTS.md rule 10).
+
+## bootFailures/{dedupeKey} — pre-React boot observability (declared 2026-09-28)
+
+Documents a *failure to start*, never anything the user did. No `uid` written
+by the client, no email, no workout, weight, or health-style field — the same
+bar AGENTS.md sets for analytics events. A report can legitimately arrive from
+an anonymous device, because a pre-React crash has no authenticated session.
+
+| Field | Type | Notes |
+|---|---|---|
+| `buildId` | string <=40 | Matches the ID in the app header; identifies the deploy |
+| `stage` | `'boot' \| 'window-error' \| 'render'` | `boot` = React never mounted |
+| `message` | string <=300 | Truncated client-side *and* server-side |
+| `platform` | string <=40, optional | Coarse only; never the full user agent (a fingerprint) |
+| `standalone` | bool, optional | Installed home-screen app — worst case for a blank screen |
+| `elapsedMs` | int 0..600000, optional | Page start → failure, to spot slow-network boots |
+| `uid` | string \| null | Written by the Function from the **verified token only**; null when anonymous |
+| `count` | int | Repeats within a 10-minute window increment this instead of creating documents |
+| `firstSeenAt` / `lastSeenAt` | ISO string | |
+
+Write path: `reportBootFailure` (2nd gen HTTPS) with the Admin SDK, which
+bypasses rules. It is a public write path by necessity — no App Check, no
+auth — because a broken app shell often cannot complete either handshake. That
+makes the guards load-bearing: Zod length caps and enumeration, explicit field
+allow-listing (extra client fields are dropped, not stored), Firestore-safe
+dedupe keys, `no-store` on the endpoint, and a count-based dedupe window so a
+reload loop cannot grow the collection or the bill. A write that fails still
+returns 202 so a broken client never enters a retry storm.
+
+Read path: **none from any client.** `firestore.rules` denies
+`bootFailures/{key}` explicitly (`allow read, write: if false`) rather than
+relying on the catch-all, so intent survives future edits. Operators read via
+the console or the Admin SDK. Emulator tests in `tests/firestore.rules.test.ts`
+assert signed-in writes, anonymous writes, and owner reads are all denied.
+
+Amendment 5 (2026-09-28, declared here first per the schema-change policy):
+additive — one new Admin-SDK-only collection plus its intake function. No
+existing collection, field, or rule changes.

@@ -317,6 +317,15 @@ service cloud.firestore {
       }
     }
 
+    // bootFailures/{key}: written ONLY by the reportBootFailure Cloud Function
+    // with the Admin SDK, which bypasses rules. Clients get no access at all —
+    // not even their own reports, because reports can arrive before sign-in
+    // (a pre-React boot failure has no session) and uid may be null. Stated
+    // explicitly rather than left to the catch-all so the intent survives edits.
+    match /bootFailures/{key} {
+      allow read, write: if false;
+    }
+
     // default deny, catch-all last
     match /{allPaths=**} { allow read, write: if false; }
   }

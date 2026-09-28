@@ -1,4 +1,6 @@
 import { Component, type ReactNode } from "react";
+import { reportRenderFailure } from "../shared/boot-monitor";
+import { attemptChunkRecovery } from "../shared/chunk-recovery";
 
 interface AppErrorBoundaryProps {
   children: ReactNode;
@@ -6,16 +8,31 @@ interface AppErrorBoundaryProps {
 
 interface AppErrorBoundaryState {
   hasError: boolean;
+  message: string | null;
 }
 
 export default class AppErrorBoundary extends Component<
   AppErrorBoundaryProps,
   AppErrorBoundaryState
 > {
-  state: AppErrorBoundaryState = { hasError: false };
+  state: AppErrorBoundaryState = { hasError: false, message: null };
 
-  static getDerivedStateFromError(): AppErrorBoundaryState {
-    return { hasError: true };
+  static getDerivedStateFromError(error: unknown): AppErrorBoundaryState {
+    const message = error instanceof Error ? error.message : String(error);
+    return { hasError: true, message };
+  }
+
+  componentDidCatch(error: unknown): void {
+    // The pre-React probe already reported "never mounted" for this crash by
+    // now; this replaces that generic timeout with the real cause.
+    const message = error instanceof Error ? error.message : String(error);
+    reportRenderFailure(message);
+
+    // A failed chunk load is usually just a stale shell from before a deploy:
+    // one reload fetches the new build and the chunk resolves. The recovery
+    // guard allows a single attempt per session, so a device with no network
+    // cannot loop — it lands on the error UI below instead.
+    if (attemptChunkRecovery(message) === "reloading") return;
   }
 
   render() {

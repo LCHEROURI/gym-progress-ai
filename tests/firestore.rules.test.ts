@@ -167,3 +167,49 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
     await assertFails(env.authenticatedContext("u2").firestore().doc("users/u1/installEvents/ev1").get());
   });
 });
+
+describe.skipIf(!live)("bootFailures rules (emulator)", () => {
+  let env: RulesTestEnvironment;
+
+  beforeAll(async () => {
+    env = await initializeTestEnvironment({
+      projectId: "demo-gym-progress-ai",
+      firestore: { rules: readFileSync("firestore.rules", "utf8") },
+    });
+    await env.clearFirestore();
+  });
+
+  afterAll(async () => {
+    await env.cleanup();
+  });
+
+  const report = {
+    buildId: "20260928abcd",
+    stage: "boot",
+    message: "No mount signal within timeout",
+    platform: "iPhone",
+    standalone: true,
+    elapsedMs: 15002,
+  };
+
+  it("denies client writes even from a signed-in user", async () => {
+    // The Function uses the Admin SDK (bypasses rules). A client must never
+    // be able to write or forge a report.
+    await assertFails(env.authenticatedContext("u1").firestore()
+      .doc("bootFailures/forged").set(report));
+  });
+
+  it("denies anonymous client writes", async () => {
+    await assertFails(env.unauthenticatedContext().firestore()
+      .doc("bootFailures/anon").set(report));
+  });
+
+  it("denies reads to any client, including the reported user", async () => {
+    // Seed via the rules-unaware admin path so there is something to read.
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      await ctx.firestore().doc("bootFailures/seeded").set({ ...report, uid: "u1", count: 1 });
+    });
+    await assertFails(env.authenticatedContext("u1").firestore()
+      .doc("bootFailures/seeded").get());
+  });
+});

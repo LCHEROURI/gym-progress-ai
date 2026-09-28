@@ -2,6 +2,24 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-28 · An automatic retry needs a worse-case plan
+
+**Experience:** A stale shell from before a deploy is fixed by one reload, so auto-reloading on a failed chunk load is the obvious fix — and the obvious fix is a battery-and-support-ticket generator, because a device with no network reloads, gets the cached shell back, fails on the same chunk, and reloads forever. The guard is one session marker in `sessionStorage`, written *before* the reload and cleared only when a build actually mounts. Two details earned their tests: the marker checks presence, not the reason, so alternation between two broken chunks still cannot loop; and it is spent even when the reload itself throws, since a blocked navigation is not a free retry. The same key is shared by the error boundary and the pre-React probe, so two observers of the same failure cannot each spend a reload.
+
+**Reflection:** "Retry once" is only safe once you have decided what "once" means across a navigation, and the answer cannot be per-call — the unit is the session. Self-healing code that cannot be proven loop-free is not self-healing, it is a new failure mode with better branding.
+
+**Distilled Principle:** Before automating a recovery action that can repeat, define the retry budget across the boundary that resets it (a navigation, a session), persist it outside the page that is being reloaded, write the marker before acting, and clear it only on proven success. Make the guard presence-based so varying failure reasons cannot reset it.
+
+**Next Experiment:** Watch how often the reload fires in the field versus how often it falls through to the error boundary; if the fall-through rate is high, the budget is too tight and the honest fix is a better cache, not a bigger budget.
+
+**Confidence:** Medium (guard logic is unit-tested across storage failure, blocked reload, and repeated failures; no real device or deploy has exercised the reload path yet)
+
+**Scope:** Project
+
+**Automation Opportunity:** Done — 14 tests cover the matcher table and the guard state machine; 4 more cover the wiring at both ends (boundary spends the marker, boundary ignores ordinary render errors, probe spends it for a failed entry script, probe refuses a second attempt).
+
+---
+
 ## 2026-09-28 · A cache that stores what it was asked for will store a lie
 
 **Experience:** The blank-screen root cause was not "a chunk 404s" but "the cache believed it": Hosting answers a deleted asset with 200 `text/html`, and the worker wrote that response into the cache under the chunk's `.js` URL. Cache-first then replayed HTML into a module import on every load, and because the cache name never changed, no reload or redeploy could clear it. The fix guards both directions — a write needs `res.ok` plus a content type that matches the URL, and a *read* whose cached type does not match is deleted and refetched, so a client poisoned by the old worker heals on its next load. The v3→v4 bump evicts the rest. Verified by executing the real `sw.js` against fake caches; string assertions on the worker could not have caught the write-guard logic.
