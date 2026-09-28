@@ -6,6 +6,7 @@ import { useSyncStatus } from "../data/useSyncStatus";
 import { fetchHistory, type HistoryRow } from "../data/history";
 import { fetchSessionFacts } from "../data/progress";
 import { isoDate } from "../domain/session";
+import { templateForRecovery } from "../domain/recovery";
 import { buildRecoveryInfo, nextWorkout } from "../today/recovery";
 import { parseEnv } from "../shared/env";
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
@@ -72,7 +73,9 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
   // Rest days (Tue/Thu/Sat/Sun) can still work out: the plan picked via
   // START A WORKOUT TODAY takes over the day until the session is done.
   const [offPlan, setOffPlan] = useState<WorkoutTemplate | null>(null);
-  const template = templateForWeekday(today.getDay()) ?? offPlan;
+  const plannedTemplate = templateForWeekday(today.getDay()) ?? offPlan;
+  const [recoveredTemplate, setRecoveredTemplate] = useState<WorkoutTemplate | null>(null);
+  const template = view === "today" ? recoveredTemplate ?? plannedTemplate : plannedTemplate;
   const syncState = useSyncStatus(db, null);
 
   useEffect(() => {
@@ -196,6 +199,7 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
         uid={uid}
         db={db}
         template={template}
+        onRecoveredTemplate={setRecoveredTemplate}
         date={isoDate(today)}
         syncState={syncState}
         profile={profile}
@@ -220,6 +224,7 @@ function ActiveFlow(props: {
   hasCompleted?: boolean;
   /** Clears an off-plan pick so the rest day comes back after DONE. */
   onResetPlan?: () => void;
+  onRecoveredTemplate: (template: WorkoutTemplate | null) => void;
 }) {
   const flow = useWorkoutSession({
     db: props.db,
@@ -250,6 +255,16 @@ function ActiveFlow(props: {
     });
   };
   const completedDate = props.date;
+  const onRecoveredTemplate = props.onRecoveredTemplate;
+  const plannedTemplate = props.template;
+  const workoutTemplate =
+    templateForRecovery(flow.session, new Date(), plannedTemplate) ?? plannedTemplate;
+
+  useEffect(() => {
+    onRecoveredTemplate(
+      flow.session ? templateForRecovery(flow.session, new Date(), plannedTemplate) : null,
+    );
+  }, [flow.session, onRecoveredTemplate, plannedTemplate]);
 
   // Fresh facts at completion so the streak is right even in a long-lived tab.
   useEffect(() => {
@@ -287,13 +302,14 @@ function ActiveFlow(props: {
         <CompleteScreen
           summary={buildCompletionSummary({
             session: flow.session,
-            template: props.template,
+            template: workoutTemplate,
             exercises: flow.exercises,
             sets: flow.sets,
           })}
           onDone={() => {
             flow.reset();
             props.onResetPlan?.();
+            props.onRecoveredTemplate(null);
             props.onNavigate("today");
           }}
         />
@@ -340,7 +356,7 @@ function ActiveFlow(props: {
   // Mid-workout: no navigation — one screen, one job (PROJECT-SPEC digital clipboard).
   return (
     <WorkoutScreen
-      template={props.template}
+      template={workoutTemplate}
       session={flow.session}
       exercises={flow.exercises}
       syncState={props.syncState}
