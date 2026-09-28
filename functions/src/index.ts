@@ -19,8 +19,10 @@
  */
 import { GoogleGenAI } from "@google/genai";
 import { initializeApp } from "firebase-admin/app";
+import { getAuth } from "firebase-admin/auth";
 import { getFirestore, Timestamp } from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
+import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
 import {
   WEEKLY_OBSERVATIONS_SYSTEM,
@@ -39,6 +41,7 @@ import {
   sessionFactFrom,
   shouldGenerateReport,
 } from "./report-run";
+import { normalizeBootReport } from "./boot-report";
 import {
   alreadySent,
   buildReminderMessage,
@@ -205,6 +208,98 @@ export const sendWorkoutReminders = onSchedule(
         // One user's failure must never stop the rest of the run.
         console.error(`[reminders] ${uid} failed:`, err);
       }
+    }
+  },
+);
+
+/**
+ * Boot-failure intake (see docs/BLANK-SCREEN-RUNBOOK.md).
+ *
+ * The client probe is injected by bootProbePlugin() in vite.config.ts and runs
+ * before any app JavaScript, so this endpoint sees exactly the failures the app
+ * itself cannot report: a poisoned chunk, a MIME error, a syntax failure, a
+ * render crash. Each write lands at bootFailures/{dedupeKey} with a count, so a
+ * device stuck in a reload loop cannot grow the collection or the bill.
+ *
+ * Anonymous by necessity: a pre-React failure has no authenticated session.
+ * Reports carry no user data — no uid, email, or workout fields — and the
+ * verified token, when one exists, is read for uid only and never trusted from
+ * the body. Identity is NOT required, so this is a public write path: it is
+ * rate-limited by dedupe, length-capped by the Zod schema, and App Check is
+ * not enforced here because a broken app shell frequently cannot complete the
+ * App Check handshake. That trade is deliberate and is called out in the
+ * runbook's threat notes.
+ */
+export const reportBootFailure = onRequest(
+  {
+    memory: "128MiB",
+    timeoutSeconds: 20,
+  },
+  async (req, res) => {
+    if (req.method !== "POST") {
+      res.set("Allow", "POST");
+      res.status(405).json({ error: "method-not-allowed" });
+      return;
+    }
+
+    let raw: unknown;
+    try {
+      // sendBeacon posts text/plain, so read the raw body rather than relying
+      // on body-parser populating req.body.
+      const text = typeof req.body === "string" ? req.body : JSON.stringify(req.body ?? {});
+      raw = JSON.parse(text);
+    } catch {
+      res.status(400).json({ error: "invalid-json" });
+      return;
+    }
+
+    const { report, dedupeKey, accepted, reason } = normalizeBootReport(raw);
+    if (!accepted) {
+      console.warn("[boot] rejected report:", reason);
+      res.status(400).json({ error: "invalid-report" });
+      return;
+    }
+
+    try {
+      const db = getFirestore(initializeApp());
+      const ref = db.doc(`bootFailures/${dedupeKey}`);
+      // uid from the verified token only; absent for pre-React failures.
+      const token = req.get("Authorization")?.replace(/^Bearer /, "") ?? "";
+      let uid: string | null = null;
+      if (token) {
+        try {
+          uid = (await getAuth().verifyIdToken(token)).uid;
+        } catch {
+          uid = null; // expired or invalid tokens are not an error worth failing on
+        }
+      }
+
+      await db.runTransaction(async (tx) => {
+        const snap = await tx.get(ref);
+        const prior = snap.exists ? snap.data() : undefined;
+        const count = (prior?.count as number | undefined) ?? 0;
+        tx.set(
+          ref,
+          {
+            ...report,
+            uid,
+            count: count + 1,
+            firstSeenAt: prior?.firstSeenAt ?? new Date().toISOString(),
+            lastSeenAt: new Date().toISOString(),
+          },
+          { merge: true },
+        );
+      });
+
+      console.log(
+        `[boot] ${report.stage} on build ${report.buildId} (uid ${uid ?? "anonymous"}): ${report.message}`,
+      );
+      // 202: accepted and recorded, not necessarily a new document.
+      res.status(202).json({ ok: true });
+    } catch (err) {
+      // Never 5xx loudly enough to retry-storm a broken client.
+      console.error("[boot] write failed:", err);
+      res.status(202).json({ ok: true });
     }
   },
 );

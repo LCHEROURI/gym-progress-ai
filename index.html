@@ -3,6 +3,7 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    %APP_BUILD_ID_META%
     <link rel="manifest" href="/manifest.webmanifest" />
     <link rel="apple-touch-icon" href="/icons/icon-192.png" />
     <meta name="theme-color" content="#14713d" />
@@ -10,6 +11,10 @@
     <meta name="apple-mobile-web-app-status-bar-style" content="default" />
     <meta name="apple-mobile-web-app-title" content="Gym AI" />
     <title>Gym Progress AI</title>
+    <!-- Pre-React boot probe. Must stay above the entry module: it reports
+         failures that happen before any app JavaScript runs. Injected by
+         bootProbePlugin() in vite.config.ts (src/shared/boot-probe.ts). -->
+    %BOOT_PROBE%
   </head>
   <body>
     <div id="root"></div>
