@@ -20,16 +20,18 @@ describe("pre-React boot probe wiring", () => {
     expect(html.indexOf("%BOOT_PROBE%")).toBeLessThan(html.indexOf("/src/main.tsx"));
   });
 
-  it("routes the report path to the Function before the SPA catch-all", () => {
+  it("routes the report path to the Function before the SPA rewrite", () => {
     const rewrites = firebaseJson.hosting.rewrites as {
       source: string;
       destination?: string;
       function?: unknown;
     }[];
     const bootIndex = rewrites.findIndex((r) => r.source === BOOT_REPORT_PATH);
-    const catchAllIndex = rewrites.findIndex((r) => r.source === "**");
+    // Looked up by destination, not by the literal "**": the SPA rewrite
+    // deliberately is not a bare catch-all any more.
+    const spaIndex = rewrites.findIndex((r) => r.destination === "/index.html");
     expect(bootIndex).toBeGreaterThanOrEqual(0);
-    expect(catchAllIndex).toBeGreaterThan(bootIndex);
+    expect(spaIndex).toBeGreaterThan(bootIndex);
     expect(rewrites[bootIndex].function).toBeTruthy();
     expect(rewrites[bootIndex].destination).toBeUndefined();
   });

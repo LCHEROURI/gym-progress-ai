@@ -21,7 +21,7 @@
     "ignore": ["firebase.json", "**/.*", "**/node_modules/**"],
     "rewrites": [
       { "source": "/__boot", "function": { "functionId": "reportBootFailure" } },
-      { "source": "**", "destination": "/index.html" }
+      { "source": "!/assets/**", "destination": "/index.html" }
     ],
     "headers": [
       {

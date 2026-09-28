@@ -2,6 +2,24 @@
 
 Development principles distilled via `skills/progressive-distillation/SKILL.md`. Newest first. Distilled principles may add stricter guidance but must never weaken project safety, CI, security, deployment, or repository rules.
 
+## 2026-09-28 · The documentation's example is a hypothesis, not a result
+
+**Experience:** The fix for a deleted chunk was to take `/assets` out of the SPA rewrite, and the official config docs conveniently show how — `"source": "!/@(js|css)/**"`, captioned "excludes specified pathways from rewrites". Implemented verbatim, then measured against the Hosting emulator: a missing asset still returned 200 `text/html`. So did the other extglob spelling. Only the plain negated path, `!/assets/**`, returned 404. The docs' example was not wrong so much as not true *here*, and only running the server could tell the difference.
+
+**Reflection:** A documented example encodes what worked in someone else's deployment, and a routing rule's effect is a property of the server, not of the config file. Reading the example carefully would have produced the same wrong answer with more confidence. It also showed a real limit worth writing down: rules are first-match-wins, so a second exclusion is unreachable — "exclude more" is not additive, and the honest move is to exclude the one path that matters and write down what remains.
+
+**Distilled Principle:** When configuration controls a server's behaviour, verify it by running the server, not by reading the documentation's example — especially for routing, matching, and caching rules where the plausible-looking spelling can be silently ignored. Record the alternatives you measured and the one that worked, so the next person does not re-derive it or reintroduce the ignored form.
+
+**Next Experiment:** Re-run the two curl checks against production after the first deploy that includes this change; if production disagrees with the emulator, the negation support differs and the worker guard remains the load-bearing defence.
+
+**Confidence:** High for the emulator behaviour (measured, with the alternatives), Medium for production parity until the post-deploy curl confirms it
+
+**Scope:** Project
+
+**Automation Opportunity:** Partial — `tests/hosting-routing.test.ts` locks the chosen pattern and the ordering; only a deploy can close the production half.
+
+---
+
 ## 2026-09-28 · An automatic retry needs a worse-case plan
 
 **Experience:** A stale shell from before a deploy is fixed by one reload, so auto-reloading on a failed chunk load is the obvious fix — and the obvious fix is a battery-and-support-ticket generator, because a device with no network reloads, gets the cached shell back, fails on the same chunk, and reloads forever. The guard is one session marker in `sessionStorage`, written *before* the reload and cleared only when a build actually mounts. Two details earned their tests: the marker checks presence, not the reason, so alternation between two broken chunks still cannot loop; and it is spent even when the reload itself throws, since a blocked navigation is not a free retry. The same key is shared by the error boundary and the pre-React probe, so two observers of the same failure cannot each spend a reload.
