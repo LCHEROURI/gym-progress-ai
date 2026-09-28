@@ -19,7 +19,7 @@ Agents: read [`AGENTS.md`](AGENTS.md) (constitution) and [`WORKFLOW.md`](WORKFLO
 | Thing | Name | Location |
 |---|---|---|
 | This application's repository + directory | `gym-progress-ai` | `~/gym-progress-ai` (standalone git repo) |
-| GitHub remote (private) | `gym-progress-ai` | `LCHEROURI/gym-progress-ai` |
+| GitHub remote (public) | `gym-progress-ai` | `LCHEROURI/gym-progress-ai` |
 | Firebase / Google Cloud project | `gym-progress-ai-lcherouri` | provisioned in Phase 2 (README §3) — the plain id `gym-progress-ai` was globally taken; repo and directory keep their name |
 | Repo template + workflow constitution | `universal-vibe-coding-bootstrap` | `LCHEROURI/universal-vibe-coding-bootstrap` |
 | Unrelated playground (never touched here) | `webapp-starter` | inside the `cook-with-freebuff` checkout |

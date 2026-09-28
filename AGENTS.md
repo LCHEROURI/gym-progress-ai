@@ -153,7 +153,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 
 - Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via server-side Genkit.
 - No Supabase, no PostgreSQL, no Vercel-specific services, no external databases unless the user explicitly approves them.
-- Server code and client code never import each other's internals; shared code lives in `src/shared/` and is environment-agnostic.
+- Client code never imports server code. The reverse does happen, deliberately and in one direction: `functions/src/` imports pure logic from the client tree — `src/domain/session`, `src/progress/stats`, `src/reports/{weekly,observations}`, `src/ai/prompts/*` — plus the shared contract in `src/shared/`. Those modules must stay free of browser APIs and the Firebase Web SDK. That is not just convention: `functions/tsconfig.json` compiles them with `lib: ES2022` and no DOM, so a browser API would fail the functions build.
 - No application code exists until the phase that introduces it is started. The documents in this repo are the contract between phases.
 
 ### 2. Coding standards
@@ -182,7 +182,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 ### 5. Security requirements
 
 - API credentials live in Google Cloud Secret Manager — never client code, `.env.local`, git, or logs.
-- App Check is enforced on all AI callables; auth is checked before any quota- or history-bearing work.
+- Auth is checked before any quota- or history-bearing work. **App Check is not enforced anywhere in this codebase** — there is no App Check code, and no AI callable endpoint exists yet (Gemini runs inside the scheduled weekly-report function with a server-side key). Treat App Check as a requirement to satisfy *before* any AI callable is exposed to clients, not as a control already in place.
 - Firebase Authentication with Google sign-in; no anonymous access to workout records.
 - Analytics are optional and off by default; sensitive health-style notes never enter analytics events.
 

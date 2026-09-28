@@ -4,3 +4,8 @@ dist/
 .env*.local
 test-results/
 playwright-report/
+
+# Emulator / CLI debug logs, written locally and never useful in the repo
+firebase-debug.log
+firestore-debug.log
+ui-debug.log
