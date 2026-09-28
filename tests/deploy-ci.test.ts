@@ -110,7 +110,11 @@ describe("deploy-hosting workflow", () => {
   it("passes infrastructure as variables, never literals", () => {
     expect(caller).toContain("vars.FIREBASE_PROJECT");
     expect(caller).toContain("vars.FIREBASE_DEPLOYER_SERVICE_ACCOUNT");
-    expect(caller).toContain("vars.GITHUB_WIF_PROVIDER");
+    // Not `GITHUB_WIF_PROVIDER`: GitHub reserves the GITHUB_ prefix for its own
+    // context variables and rejects the name with HTTP 422 on `gh variable
+    // set`. Found by trying it, not by reading the docs.
+    expect(caller).toContain("vars.WORKLOAD_IDENTITY_PROVIDER");
+    expect(caller).not.toContain("vars.GITHUB_");
     // A hard-coded project id would deploy to the wrong place the first time
     // this repo were recreated.
     expect(caller).not.toContain("gym-progress-ai-lcherouri");

@@ -61,13 +61,13 @@ jobs:
         env:
           FIREBASE_PROJECT: ${{ vars.FIREBASE_PROJECT }}
           DEPLOYER_SA: ${{ vars.FIREBASE_DEPLOYER_SERVICE_ACCOUNT }}
-          WIF_PROVIDER: ${{ vars.GITHUB_WIF_PROVIDER }}
+          WIF_PROVIDER: ${{ vars.WORKLOAD_IDENTITY_PROVIDER }}
         run: |
           set -euo pipefail
           missing=()
           [ -n "${FIREBASE_PROJECT}" ]   || missing+=("FIREBASE_PROJECT")
           [ -n "${DEPLOYER_SA}" ]        || missing+=("FIREBASE_DEPLOYER_SERVICE_ACCOUNT")
-          [ -n "${WIF_PROVIDER}" ]       || missing+=("GITHUB_WIF_PROVIDER")
+          [ -n "${WIF_PROVIDER}" ]       || missing+=("WORKLOAD_IDENTITY_PROVIDER")
           if [ ${#missing[@]} -gt 0 ]; then
             echo "::error::Missing repository variables (Settings → Secrets and variables → Actions → Variables): ${missing[*]}"
             echo "::error::These are set-up steps, not code. See docs/DEPLOY-CI.md."

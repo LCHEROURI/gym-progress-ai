@@ -9,6 +9,14 @@ job with a message naming the missing repository variables, and deploys continue
 to happen by hand with `npm run deploy` from a machine with credentials. That is
 a safe state, not a broken one.
 
+> **Provisioned 2026-09-28.** Steps 1–4 are done: pool `github`, provider
+> `github-provider` (condition `assertion.repository == 'LCHEROURI/gym-progress-ai'`),
+> SA `firebase-hosting-deployer` with exactly `roles/firebasehosting.admin` and
+> `roles/serviceusage.serviceUsageConsumer`, and all three repository variables
+> set. Two commands below were corrected while running them: `providers create`
+> is really `providers create-oidc`, and the pool resource name needs the
+> project number. The doc reflects what actually worked.
+
 ## What CI deploys, and what it does not
 
 | Surface | Deployed by CI | How |
@@ -36,12 +44,16 @@ which should be attached to a CI pipeline.
 PROJECT=gym-progress-ai-lcherouri
 REPO=LCHEROURI/gym-progress-ai
 
-# Pool + provider bound to THIS repository only. Attribute condition means a
+# Pool + provider bound to THIS repository only. The attribute condition means a
 # fork cannot mint a token even if it opens a pull request.
+#
+# Note `create-oidc`, not `create`: there is no generic `providers create`
+# subcommand, and gcloud answers a wrong one with a list of valid choices
+# rather than a clear error.
 gcloud iam workload-identity-pools create github \
   --project="$PROJECT" --location=global --display-name="GitHub Actions"
 
-gcloud iam workload-identity-pools providers create github-provider \
+gcloud iam workload-identity-pools providers create-oidc github-provider \
   --project="$PROJECT" --location=global \
   --workload-identity-pool=github \
   --display-name="$REPO" \
@@ -69,11 +81,17 @@ compromised CI token can publish a website and nothing else.
 
 ### 3. Let GitHub impersonate that account
 
+The pool resource name uses the project **number**, not its id. Using
+`$PROJECT` here fails with *"Identity Pool does not exist"* — the pool's `name`
+attribute is always numeric.
+
 ```bash
+NUM=$(gcloud projects describe $PROJECT --format='value(projectNumber)')
+
 gcloud iam service-accounts add-iam-policy-binding \
   firebase-hosting-deployer@$PROJECT.iam.gserviceaccount.com \
   --project="$PROJECT" \
-  --member="principalSet://iam.googleapis.com/projects/$PROJECT/locations/global/workloadIdentityPools/github/attribute.repository/$REPO" \
+  --member="principalSet://iam.googleapis.com/projects/$NUM/locations/global/workloadIdentityPools/github/attribute.repository/$REPO" \
   --role="roles/iam.workloadIdentityUser"
 ```
 
@@ -86,10 +104,32 @@ are not secret).
 |---|---|
 | `FIREBASE_PROJECT` | `gym-progress-ai-lcherouri` |
 | `FIREBASE_DEPLOYER_SERVICE_ACCOUNT` | `firebase-hosting-deployer@gym-progress-ai-lcherouri.iam.gserviceaccount.com` |
-| `GITHUB_WIF_PROVIDER` | `projects/777425611767/locations/global/workloadIdentityPools/github/providers/github-provider` |
+| `WORKLOAD_IDENTITY_PROVIDER` | `projects/777425611767/locations/global/workloadIdentityPools/github/providers/github-provider` |
 
 The provider resource name contains the project *number*, not its id. Get it
 with `gcloud projects describe $PROJECT --format='value(projectNumber)'`.
+
+**Not `GITHUB_WIF_PROVIDER`.** GitHub reserves the `GITHUB_` prefix for the
+variables it injects into every workflow, and rejects the name outright:
+
+```
+$ gh variable set GITHUB_WIF_PROVIDER -b ...
+HTTP 422: Variable names must not start with GITHUB_.
+```
+
+Any `GITHUB_`-prefixed name is unavailable, so this one is spelled out in full.
+
+Or from the CLI:
+
+```bash
+gh variable set FIREBASE_PROJECT -b gym-progress-ai-lcherouri --repo LCHEROURI/gym-progress-ai
+gh variable set FIREBASE_DEPLOYER_SERVICE_ACCOUNT \
+  -b firebase-hosting-deployer@gym-progress-ai-lcherouri.iam.gserviceaccount.com \
+  --repo LCHEROURI/gym-progress-ai
+gh variable set WORKLOAD_IDENTITY_PROVIDER \
+  -b projects/777425611767/locations/global/workloadIdentityPools/github/providers/github-provider \
+  --repo LCHEROURI/gym-progress-ai
+```
 
 ## Verifying before trusting it
 
@@ -128,6 +168,8 @@ is not running — which is itself worth knowing.
 | Symptom | Cause |
 |---|---|
 | `preflight` lists missing variables | steps 1–4 not done, or variables added to Secrets instead of Variables |
+| `HTTP 422: Variable names must not start with GITHUB_` | the name is reserved by GitHub; use `WORKLOAD_IDENTITY_PROVIDER` |
+| `Identity Pool does not exist` on the step-3 binding | the pool resource name used the project id; it needs the project **number** |
 | `Could not fetch access token` / 401 in the auth step | the provider resource name is wrong, or step 3 is missing; check `gcloud iam service-accounts get-iam-policy` |
 | 403 deploying | the deployer SA lacks `roles/firebasehosting.admin` |
 | Run succeeds, nothing deployed | the reusable workflow matched neither `preview` nor `production` — its jobs are gated on `github.event_name`, so only `push` to `main` and `pull_request` do anything. `tests/deploy-ci.test.ts` pins this. |
