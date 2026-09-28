@@ -1,9 +1,12 @@
 # Data Model
 
 Firestore schema for Gym Progress AI. Collections are namespaced under
-`users/{uid}` so multi-user support is a rules-and-query concern only. All
-writes are Zod-validated at the repository boundary. Schema changes follow the
-policy at the bottom — additive, declared here first, never silent.
+`users/{uid}` so multi-user support is a rules-and-query concern only. The one
+exception is `bootFailures`, which cannot be namespaced: a pre-React crash has
+no authenticated user, and a device that never signs in still needs to be
+diagnosable. All writes are Zod-validated at the repository boundary. Schema
+changes follow the policy at the bottom — additive, declared here first, never
+silent.
 
 ## Collection tree
 
@@ -21,6 +24,7 @@ users/{uid}/personalRecords/{recordId}
 users/{uid}/installEvents/{eventId}            ← install funnel (append-only)
 users/{uid}/fcmTokens/{tokenId}                ← device push registration
 users/{uid}/reminderState/{tokenId}            ← server-derived send guard
+bootFailures/{dedupeKey}                       ← pre-React boot failures (top level, Admin SDK only, denied to clients)
 ```
 
 ## users/{uid}

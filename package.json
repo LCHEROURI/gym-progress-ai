@@ -13,6 +13,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:layout": "playwright test",
+    "emulators": "firebase emulators:start --only auth,firestore,ui",
+    "test:emulator": "FIRESTORE_EMULATOR_HOST=127.0.0.1:8080 vitest run --no-file-parallelism tests/firestore.rules.test.ts tests/workout-recovery.emulator.test.ts",
+    "deploy": "firebase deploy --only hosting,functions,firestore:rules,firestore:indexes --project gym-progress-ai-lcherouri",
     "check": "npm run typecheck && npm run lint && npm run test && npm run build"
   },
   "dependencies": {

@@ -101,7 +101,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Never reduce type size in a visual pass without checking whether the size is an intentional accessibility default; build the identity from spacing, hierarchy, color, and icons instead.
 
-**Next Experiment:** Candidate: record the accessibility floor (min text size, min tap target) in TESTING.md or a CSS comment block so future passes know what not to cut.
+**Next Experiment:** Candidate: record the accessibility floor (min text size, min tap target) in TEST-PLAN.md or a CSS comment block so future passes know what not to cut.
 
 **Confidence:** Medium (one near-miss caught by asking why the base was 20px)
 
@@ -133,7 +133,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** When a test depends on wall-clock state (weekday templates), fake only `Date` (`toFake: ["Date"]`); when consecutive screens share roles, wait for a marker unique to the destination screen before asserting within it.
 
-**Next Experiment:** Candidate TESTING.md note: journey tests assert a destination marker first; weekday-templated tests use `toFake: ["Date"]` instead of full fake timers.
+**Next Experiment:** Candidate TEST-PLAN.md note: journey tests assert a destination marker first; weekday-templated tests use `toFake: ["Date"]` instead of full fake timers.
 
 **Confidence:** Medium (both traps hit and fixed in one session, one clean red→green)
 
@@ -165,7 +165,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Emulator/integration suites must be hermetic across runs: clear backend state at suite start, and treat "passes only on a fresh daemon" as a defect.
 
-**Next Experiment:** Candidate TESTING.md note: emulator suites clear state in `beforeAll`; per-run unique ids as a second line of defense.
+**Next Experiment:** Candidate TEST-PLAN.md note: emulator suites clear state in `beforeAll`; per-run unique ids as a second line of defense.
 
 **Confidence:** Medium (failure count grew run-over-run — a clean reproduction)
 
@@ -181,7 +181,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** Never trust a single verification channel: pair every visual capture with a programmatic probe of the same state, and confirm file absence through git (`git ls-files`) before overwriting — tool-reported absence is not evidence of absence.
 
-**Next Experiment:** Candidate TESTING.md note: screenshot sessions cross-check frames against DOM probes; before `write_file` on any path, run `git ls-files --error-unmatch` when the name might exist.
+**Next Experiment:** Candidate TEST-PLAN.md note: screenshot sessions cross-check frames against DOM probes; before `write_file` on any path, run `git ls-files --error-unmatch` when the name might exist.
 
 **Confidence:** Medium (two independent traps in one session, both caught by cross-checking)
 
@@ -229,7 +229,7 @@ Development principles distilled via `skills/progressive-distillation/SKILL.md`.
 
 **Distilled Principle:** When a live check is blocked by environment auth, pin the behavior in a render test rather than changing production auth config to make the check pass; keep long-running dev processes alive with double-fork + setsid (never bare `&`).
 
-**Next Experiment:** Candidate TESTING.md note: dev-server runs use double-fork + setsid, and localhost sign-in requires adding `localhost` to Firebase Auth Authorized Domains (console-only).
+**Next Experiment:** Candidate TEST-PLAN.md note: dev-server runs use double-fork + setsid, and localhost sign-in requires adding `localhost` to Firebase Auth Authorized Domains (console-only).
 
 **Confidence:** Medium (two independent walls in one session, both with durable fixes)
 
