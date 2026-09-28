@@ -160,10 +160,30 @@ describe("deploy-hosting workflow", () => {
     const reusable = readFileSync(".github/workflows/firebase-hosting-reusable.yml", "utf8");
     expect(reusable).toContain("vars.VITE_FIREBASE_API_KEY");
     expect(reusable).toContain("vars.VITE_FIREBASE_PROJECT_ID");
-    // Both the preview and production build steps, or previews ship broken
-    // builds that look fine because nobody opens them.
-    const envBlocks = reusable.match(/VITE_FIREBASE_API_KEY: /g) ?? [];
-    expect(envBlocks.length).toBe(2);
+  });
+
+  it("gives the DEPLOY step the same variables, for the predeploy rebuild", () => {
+    // This is the one that bit us. `firebase deploy --only hosting` runs the
+    // `hosting.predeploy` hook — which is `npm run build` again — inside the
+    // DEPLOY step. Env on the build step alone is not enough: the hook rebuilt
+    // dist/ with no config and overwrote the correct bundle before upload. It
+    // shipped to production, and every build-time check was green.
+    //
+    // Asserted per-step rather than by counting occurrences, so moving the env
+    // back to only one of the two steps fails here.
+    const reusable = readFileSync(".github/workflows/firebase-hosting-reusable.yml", "utf8");
+    const steps = reusable.split(/\n {6}- name: /).slice(1);
+    const deploySteps = steps.filter((s) => s.startsWith("Deploy Firebase"));
+    expect(deploySteps.length).toBe(2);
+    for (const step of deploySteps) {
+      expect(step).toContain("vars.VITE_FIREBASE_API_KEY");
+      expect(step).toContain("vars.VITE_FIREBASE_PROJECT_ID");
+    }
+    const buildSteps = steps.filter((s) => s.startsWith("Build application"));
+    expect(buildSteps.length).toBe(2);
+    for (const step of buildSteps) {
+      expect(step).toContain("vars.VITE_FIREBASE_API_KEY");
+    }
   });
 
   it("fails the build loudly when the config is missing, instead of deploying it", () => {
