@@ -1,9 +1,24 @@
 # Architecture
 
-Gym Progress AI — Vite + React + TypeScript PWA on Firebase, with all Gemini
-work executed server-side. Design goals: local-first (gym wifi is unreliable),
-portable (Google ecosystem only, no vendor lock beyond it), and safe (private
-workout history and API credentials never reach the browser).
+Gym Progress AI — Vite + React + TypeScript PWA on Firebase. Design goals:
+local-first (gym wifi is unreliable), portable (Google ecosystem only, no vendor
+lock beyond it), and safe (the `GEMINI_API_KEY` secret never reaches the
+browser).
+
+Two distinct Gemini paths exist, and the difference matters:
+
+- **Client-side, via `firebase/ai`** — the interactive Coach chat, weight
+  explanations, and weekly observations call `getAI(app, { backend: new
+  GoogleAIBackend() })` in `src/coach/chat.ts`, `src/coach/explain.ts`, and
+  `src/reports/observations.ts`. These run on the user's Firebase web app
+  (Firebase AI Logic), not through a Cloud Function. No secret is exposed —
+  the browser only holds the referrer-restricted web API key — but the call is
+  a billable client-initiated request, which is why App Check is the missing
+  control here (AGENTS.md §5).
+- **Server-side, via `@google/genai`** — the Sunday scheduled weekly report in
+  `functions/src/index.ts` uses `GoogleGenAI` with `GEMINI_API_KEY` from Secret
+  Manager. It is the only Gemini call in `functions/`, and there is no AI
+  callable endpoint for clients.
 
 ## System diagram
 
@@ -18,27 +33,31 @@ flowchart TB
         Auth["Firebase Auth — Google sign-in"]
         FS[("Firestore — persistent offline cache")]
         Rules["Security rules: default deny, own uid"]
-        AC["App Check — enforced on AI callables"]
+        AC["App Check — NOT yet implemented"]
     end
 
-    subgraph Server["Cloud Functions (2nd gen) — Genkit + Gemini"]
-        SW["suggestWeight flow"]
-        CA["coachAnswer flow"]
-        WR["weeklyReport flow (Cloud Scheduler, Sunday)"]
+    subgraph Server["Cloud Functions (2nd gen) — Gemini via @google/genai"]
+        WR["sundayWeeklyReports (Cloud Scheduler)"]
         CB["Context builder: intent → targeted retrieval →
             deterministic calc → Gemini interprets facts"]
-        Prompts["prompts/ (versioned)"]
-        SW --> CB
-        CA --> CB
+        Prompts["src/ai/prompts/ (versioned, shared)"]
         WR --> CB
         CB --> Prompts
     end
 
+    subgraph AIV1["Client-side Gemini (firebase/ai)"]
+        CS["Coach chat — src/coach/chat.ts"]
+        EX["Weight explanation — src/coach/explain.ts"]
+        OB["Weekly observations — src/reports/observations.ts"]
+    end
+
     State <-->|Auth session| Auth
     State <-->|reads + write-through autosave| FS
-    State -->|HTTPS callable + App Check| SW
-    UI -->|chat| CA
+    UI -->|chat| CS --> CB
+    State -->|explain| EX --> CB
+    UI -->|observations| OB --> CB
     WR -->|writes weeklyReports| FS
+    AC -.->|"the gate that would protect this"| AIV1
     Secrets["Secret Manager: GEMINI_API_KEY"] --> Server
 ```
 
@@ -52,10 +71,18 @@ flowchart TB
 3. **Data** (`src/data/`) — Firestore repositories per collection, Zod-validated
    on writes; persistent offline cache and write-through autosave; previous-
    weight lookup via `exerciseStats` rollups with history fallback.
-4. **Server** (`functions/src/`) — Genkit flows, deterministic calculators,
-   context builders, prompt modules. Admin SDK only here.
+4. **Server** (`functions/src/`) — the scheduled weekly report, deterministic
+   calculators, context builders. Admin SDK only here.
 
-Client and server share only Zod schemas and pure types (`src/shared/`).
+Shared code is one-directional: `functions/src/` imports pure logic from the
+client tree — `src/domain/session`, `src/progress/stats`, `src/reports/weekly`,
+`src/ai/prompts/*` — plus the contracts in `src/shared/`. The client never
+imports from `functions/`. Those shared modules must stay free of browser APIs
+and the Firebase Web SDK; `functions/tsconfig.json` compiles with `lib: ES2022`
+and no DOM, so a browser API fails the functions build.
+
+The prompts are shared too, which is why `src/ai/prompts/` lives on the client
+side of the tree even though the server reads it.
 
 ## Data flow: logging a set
 
@@ -72,7 +99,7 @@ Client and server share only Zod schemas and pure types (`src/shared/`).
    `personalRecords` from history (derived caches — sessions stay the source
    of truth).
 
-## AI context pipeline (all flows)
+## AI context pipeline (Coach chat, explanations, weekly observations)
 
 1. **Determine intent** (which exercise / which question class).
 2. **Retrieve only relevant records** (bounded queries: e.g. last N sessions
@@ -80,7 +107,7 @@ Client and server share only Zod schemas and pure types (`src/shared/`).
 3. **Compute numeric facts in deterministic code** (totals, deltas, streaks,
    PRs) — never asked of Gemini.
 4. **Send the facts to Gemini** with a versioned prompt from
-   `functions/src/ai/prompts/`.
+   `src/ai/prompts/`.
 5. **Gemini interprets** and returns typed structured output (Zod-validated).
 6. **Store the recommendation + facts + promptVersion** (audit trail) and
    return it to the client.
@@ -102,11 +129,17 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 
 ## Model and prompt configuration
 
-- Model names resolve from one table (`functions/src/ai/models.ts`): environment
-  variable override first, hardcoded default last. Call sites never hardcode a
-  model name.
-- Prompts are versioned files (`functions/src/ai/prompts/<name>.v<N>.ts`), each
-  exporting `PROMPT_VERSION`; recommendations store the version used.
+- Client model default lives in one place: `DEFAULT_MODEL` in
+  `src/coach/explain.ts` (`gemini-2.5-flash`), re-exported into `chat.ts` and
+  `reports/observations.ts`. There is no environment override on the client
+  path; the comment above the constant records that as a future change.
+- The server keeps its own default in `functions/src/index.ts`:
+  `process.env.GEMINI_MODEL || "gemini-2.5-flash"`, with a comment requiring
+  the two to stay in sync. A single shared table (`functions/src/ai/models.ts`
+  in earlier drafts) does not exist.
+- Prompts are versioned modules in `src/ai/prompts/` (`coach-chat.ts`,
+  `weight-explanation.ts`, `weekly-observations.ts`), each exporting
+  `PROMPT_VERSION`; stored recommendations and reports carry the version used.
 
 ## Offline and recovery model
 
@@ -127,14 +160,19 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 
 - Identity: Firebase Auth on the client; verified ID tokens server-side. Path
   security by `request.auth.uid`; client-supplied uids are ignored.
-- App Check enforced on AI callables (quota + history protection).
+- App Check: **not implemented**. There is no App Check code anywhere, and no
+  client-facing AI callable. The gap that matters today is the client-side
+  `firebase/ai` path: any browser holding the web app config can drive a
+  billable Gemini request, and only a referrer restriction stands in the way.
+  Enforcing App Check closes that before more client-side AI ships.
 - `GEMINI_API_KEY` exists only in Secret Manager and the Functions runtime.
 - Rules default-deny with shape validation; privileged writes only via Admin
   SDK.
 
 ## Deployment topology
 
-Firebase Hosting (static Vite build + SPA fallback), Cloud Functions (2nd
-gen), Firestore + Indexes + Rules via `firebase deploy`. Cloud Scheduler fires
-`weeklyReport` Sundays (configurable hour) and, when enabled, reminder jobs
-Mon/Wed/Fri.
+Firebase Hosting (static Vite build + SPA fallback that excludes `/assets/**`,
+so a deleted chunk 404s instead of returning the shell), Cloud Functions (2nd
+gen), Firestore + Indexes + Rules via `npm run deploy`. Cloud Scheduler fires
+`sundayWeeklyReports` on `SUNDAY_CRON` and `sendWorkoutReminders` every five
+minutes (`REMINDER_CRON`, a per-user send guard, not Mon/Wed/Fri).

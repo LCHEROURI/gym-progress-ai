@@ -151,7 +151,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 
 ### 1. Scope boundaries
 
-- Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via server-side Genkit.
+- Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via server-side `@google/genai` (`GoogleGenAI`, called directly in `functions/src/index.ts`). Genkit is not a dependency; if a doc or plan says "Genkit flows", it means server-side Gemini calls.
 - No Supabase, no PostgreSQL, no Vercel-specific services, no external databases unless the user explicitly approves them.
 - Client code never imports server code. The reverse does happen, deliberately and in one direction: `functions/src/` imports pure logic from the client tree — `src/domain/session`, `src/progress/stats`, `src/reports/{weekly,observations}`, `src/ai/prompts/*` — plus the shared contract in `src/shared/`. Those modules must stay free of browser APIs and the Firebase Web SDK. That is not just convention: `functions/tsconfig.json` compiles them with `lib: ES2022` and no DOM, so a browser API would fail the functions build.
 - No application code exists until the phase that introduces it is started. The documents in this repo are the contract between phases.
@@ -160,7 +160,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 
 - TypeScript strict mode. A `any` needs a written reason beside it.
 - Components use controlled inputs with `useState` or a reducer store; no form libraries.
-- Validate every external boundary (function payloads, AI structured output, Firestore writes) with Zod schemas in `src/shared/schemas/`.
+- Validate every external boundary (function payloads, AI structured output, Firestore writes) with a Zod schema. There is no `src/shared/schemas/` directory: a contract that both sides of the boundary import lives in `src/shared/` (e.g. `boot-failure.ts`, `env.ts`), and a schema only one side needs lives next to that side's consumer (`src/domain/`, `src/data/`, `functions/src/`).
 - Small, single-purpose modules; split a file the moment it holds more than one responsibility.
 - Error copy is honest and actionable — never "Something went wrong".
 
@@ -188,7 +188,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 
 ### 6. AI safety requirements
 
-Full policy in `docs/AI-SAFETY.md`. In short: Gemini is advisory only; the symptom gate suppresses progression advice after concerning symptom reports; no diagnosis, no medication talk, no "push through"; prompts are version-controlled in `functions/src/ai/prompts/`; every recommendation stores its facts, model, and prompt version (audit trail).
+Full policy in `docs/AI-SAFETY.md`. In short: Gemini is advisory only; the symptom gate suppresses progression advice after concerning symptom reports; no diagnosis, no medication talk, no "push through"; prompts are version-controlled in `src/ai/prompts/` (shared: the client runs them through `firebase/ai`, the functions import the same files); every recommendation stores its facts, model, and prompt version (audit trail).
 
 ### 7. No destructive database actions without confirmation
 
@@ -217,7 +217,7 @@ AI never writes `weightUsed`, never changes the workout plan, never marks sets c
 ### Stack and commands
 
 - React 19 + TypeScript + Vite; Firebase Web SDK (Auth, Firestore, optional Messaging); Zod; hand-rolled SVG charts; PWA manifest + service worker.
-- Server: Firebase Cloud Functions (2nd gen) + Genkit + Gemini.
+- Server: Firebase Cloud Functions (2nd gen) + Gemini via `@google/genai`.
 - Testing: Vitest + Testing Library + jsdom; `@firebase/rules-unit-testing`.
 
 ```bash
@@ -226,7 +226,12 @@ npm run dev            # Vite dev server
 npm run check          # typecheck → lint → test → build
 npm run lint:classnames # className tokens must have a CSS rule (ratchet baseline)
 npm run test:layout    # Playwright layout smoke: no horizontal overflow at 320/390px
-npm run emulators      # Firebase Emulator Suite
-npm run test:emulator  # rules + integration tests
+npm run emulators      # Firebase Emulator Suite (leave running in its own terminal)
+npm run test:emulator  # rules + recovery integration tests (needs the emulator above)
 npm run deploy         # Hosting + Functions + Rules + Indexes (explicit authorization only)
 ```
+
+`emulators` and `deploy` shell out to the `firebase` CLI, which is a machine-level
+prerequisite (global `firebase-tools`), not a project dependency. `test:emulator`
+does not start an emulator; it points Vitest at the one `emulators` is already
+serving on 127.0.0.1:8080 (the port in `firebase.json`).

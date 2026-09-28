@@ -7,7 +7,7 @@ you always decide**.
 
 Built on the Google ecosystem only: React + TypeScript + Vite + Firebase
 (Auth, Firestore, Hosting, Functions, Cloud Scheduler, optional Messaging) +
-Google Gemini through server-side Genkit flows.
+Google Gemini through server-side `@google/genai` calls.
 
 Agents: read [`AGENTS.md`](AGENTS.md) (constitution) and [`WORKFLOW.md`](WORKFLOW.md)
 (full procedure) before touching this repository.
@@ -39,8 +39,8 @@ See `docs/ARCHITECTURE.md` for the full design and diagrams. Summary:
 
 - **Client** — Vite + React + TypeScript PWA. Local-first: Firestore offline
   persistence + write-through autosave + a SAVED / SYNCING / OFFLINE indicator.
-- **Server** — Firebase Cloud Functions (2nd gen) running Genkit flows for
-  Gemini. All AI is server-side; the API key never reaches the browser.
+- **Server** — Firebase Cloud Functions (2nd gen) calling Gemini. All AI is
+  server-side; the API key never reaches the browser.
 - **Context pipeline** — intent → targeted Firestore retrieval → deterministic
   calculations in plain code → Gemini interprets the computed facts →
   structured answer. Gemini never computes critical totals.
@@ -54,10 +54,14 @@ See `docs/ARCHITECTURE.md` for the full design and diagrams. Summary:
 3. Enable **Authentication → Google** sign-in.
 4. Create the **Firestore** database (production mode; rules ship in this repo).
 5. Register a **Web app** and copy its config into `.env.local` (section 9).
-6. Enable **App Check** (reCAPTCHA v3 provider) and register the web app.
-7. When the project exists, record it in `apps.yml` (the registry row is added
-   only once its facts are real — never invented in advance).
-8. Deploy with `firebase deploy --only hosting,functions,firestore:rules,firestore:indexes --project gym-progress-ai-lcherouri` only after explicit authorization.
+6. App Check: **not implemented** — the client never initializes it, so
+   registering the web app in the console changes nothing today. It becomes
+   real code when an AI callable is exposed to clients (AGENTS.md §5).
+7. When the project exists, record it in the bootstrap template's `apps.yml`
+   registry (`LCHEROURI/universal-vibe-coding-bootstrap` — the file is not in
+   this repository). The row is added only once its facts are real — never
+   invented in advance. `scripts/configure-firebase-app.sh` writes it there.
+8. Deploy with `npm run deploy` only after explicit authorization.
 
 ## 4. Gemini setup
 
@@ -111,12 +115,15 @@ commands in §6. The complete matrix lives in `docs/TEST-PLAN.md`.
 
 ```bash
 npm run check              # must be green first
-firebase deploy --only hosting,functions,firestore:rules,firestore:indexes --project gym-progress-ai-lcherouri
+npm run deploy             # hosting, functions, rules, indexes
 ```
 
-Deployment happens only on explicit instruction — never automatically. CI
-includes the reusable Firebase Hosting workflow (OIDC deployer) from the
-bootstrap template.
+Deployment happens only on explicit instruction — never automatically. Nothing
+in CI deploys: the only workflow that runs is
+`.github/workflows/bootstrap-check.yml` (a repository verifier).
+`.github/workflows/firebase-hosting-reusable.yml` is the OIDC Hosting deployer
+carried over from the bootstrap template, and **no workflow calls it yet** — a
+caller has to be written before it can deploy anything.
 
 ## 9. Environment variables
 
@@ -130,13 +137,14 @@ bootstrap template.
 | `VITE_FIREBASE_STORAGE_BUCKET` | storage bucket |
 | `VITE_FIREBASE_MESSAGING_SENDER_ID` | sender id |
 | `VITE_FIREBASE_APP_ID` | web app id |
+| `VITE_FCM_VAPID_KEY` | web push cert (Firebase console → Cloud Messaging → Web Push certificates). Optional: `src/reminders/push.ts` skips push with an explicit error naming this variable when it is missing, so reminders still work without it. |
 | `VITE_USE_EMULATOR` | `1` = point the SDKs at the emulators |
 
 Secrets (server only — Secret Manager, never `.env.local`):
 
 | Name | Purpose |
 |---|---|
-| `GEMINI_API_KEY` | Gemini access for the Genkit flows |
+| `GEMINI_API_KEY` | Gemini access for the server-side `@google/genai` calls |
 
 ## 10. Troubleshooting
 
@@ -173,11 +181,11 @@ so the safety constitution exists before any application code. Preserved as-is:
   `create-repo-from-template.sh`, `configure-firebase-app.sh`.
 - `.github/workflows/bootstrap-check.yml` — runs the verifier on every push/PR
   to `main`; `.github/workflows/firebase-hosting-reusable.yml` — OIDC-based
-  Hosting deploy workflow for later phases.
+  Hosting deploy workflow, present but not yet called by any workflow.
 - `skills/progressive-distillation/SKILL.md` — reflection workflow for
   meaningful failures and discoveries.
-- `apps.yml` — central app registry (the `gym-progress-ai` row is added when
-  the Firebase project exists).
+- `apps.yml` — the central app registry lives in the **bootstrap template**
+  repo, not here; the `gym-progress-ai` row is added when its facts are real.
 
 Boundary rule (from the constitution): a directory name, preview URL, Firebase
 project, or prior conversation never establishes repository identity — always
