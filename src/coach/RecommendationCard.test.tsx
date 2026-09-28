@@ -48,6 +48,31 @@ describe("RecommendationCard", () => {
     expect(onKeep).toHaveBeenCalledOnce();
   });
 
+  it("never renders a literal null when there is no history to judge", () => {
+    // recommendWeight returns previousWeight: null for the insufficient-data
+    // case, which is every resistance exercise on a new account. The label
+    // interpolated it directly, so users saw "KEEP null LB" mid-workout.
+    const cold: Recommendation = {
+      ...suggestion,
+      action: "keep",
+      previousWeight: null,
+      suggestedWeight: 0,
+    };
+    render(
+      <RecommendationCard
+        recommendation={cold}
+        reason="Not enough history yet"
+        onUse={vi.fn()}
+        onKeep={vi.fn()}
+        onChooseOther={vi.fn()}
+      />,
+    );
+    expect(screen.queryByText(/null/)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "KEEP CURRENT WEIGHT" }),
+    ).toBeInTheDocument();
+  });
+
   it("hides USE and shows the safety message when progression is blocked", () => {
     const blocked: Recommendation = { ...suggestion, blockedBySafety: true, action: "keep", suggestedWeight: 70 };
     render(

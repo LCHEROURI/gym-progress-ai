@@ -24,6 +24,42 @@ vi.mock("firebase/firestore", () => ({
 
 import { fetchProgressFacts } from "./progress";
 
+/**
+ * Regression: fetchProgressFacts parsed documents straight into schemas that
+ * declare z.date(), so it threw on every real Timestamp and the Progress
+ * screen showed "Could not load your progress" for any account with a saved
+ * workout. The fixtures below model the wire format, not buildSession's
+ * already-plain Dates — which is why the original suite stayed green.
+ */
+const timestamp = (d: Date) => ({ toDate: () => d, seconds: d.getTime() / 1000 });
+
+const sessionDoc = () => ({
+  ...session,
+  startedAt: timestamp(new Date("2026-09-28T09:05:00Z")),
+  completedAt: timestamp(new Date("2026-09-28T09:24:00Z")),
+  createdAt: timestamp(now),
+  updatedAt: timestamp(now),
+});
+
+const exerciseDoc = (overrides: Record<string, unknown> = {}) => ({
+  ...exercises[0],
+  createdAt: timestamp(now),
+  updatedAt: timestamp(now),
+  ...overrides,
+});
+
+describe("fetchProgressFacts with Firestore Timestamps", () => {
+  it("converts session and exercise Timestamps instead of throwing", async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce({ docs: [{ data: () => sessionDoc() }] } as never)
+      .mockResolvedValueOnce({ docs: [{ data: () => exerciseDoc({ completed: true }) }] } as never);
+    const facts = await fetchProgressFacts({ db: {} as never }, "u1");
+    expect(facts.sessions).toHaveLength(1);
+    expect(facts.exercises).toHaveLength(1);
+    expect(facts.exercises[0].completed).toBe(true);
+  });
+});
+
 beforeEach(() => {
   vi.clearAllMocks();
 });

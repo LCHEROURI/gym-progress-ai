@@ -1,4 +1,22 @@
 /**
+ * All three functions are declared in this one module, and Cloud Functions
+ * loads the whole module to serve any of them. Two consequences worth knowing
+ * before changing anything here:
+ *
+ * 1. Every function pays for every other function's imports. That is why
+ *    `@google/genai` is imported dynamically inside geminiText() rather than
+ *    at the top: reportBootFailure has a 20s budget and never calls Gemini.
+ *    The same reasoning applies to anything added to the import block.
+ *
+ * 2. The real fix for (1) is to split this into separate entry points, but
+ *    that is not a local edit. functions/package.json declares a single `main`
+ *    (lib/functions/src/index.js) and firebase.json declares a single
+ *    `functions` source with one codebase, so a second entry point needs a
+ *    `codebase` on the function and a matching firebase.json entry — a
+ *    deployment change, and one that must be verified by deploying, not by
+ *    reading the config. Until that is done, the dynamic import is the
+ *    mitigation that keeps the boot endpoint's cold start affordable.
+ *
  * Sunday weekly reports.
  *
  * Cloud Scheduler fires `sundayWeeklyReports` every Sunday at noon Eastern —
@@ -17,10 +35,14 @@
  * GEMINI_API_KEY. Without it, reports use the deterministic voice. The key
  * stays server-side — it never ships in the browser bundle.
  */
-import { GoogleGenAI } from "@google/genai";
 import { initializeApp } from "firebase-admin/app";
 import { getAuth } from "firebase-admin/auth";
-import { getFirestore, Timestamp } from "firebase-admin/firestore";
+import {
+  FieldPath,
+  getFirestore,
+  Timestamp,
+  type QueryDocumentSnapshot,
+} from "firebase-admin/firestore";
 import { getMessaging } from "firebase-admin/messaging";
 import { onRequest } from "firebase-functions/v2/https";
 import { onSchedule } from "firebase-functions/v2/scheduler";
@@ -57,11 +79,53 @@ export const REPORT_TIME_ZONE = "America/New_York";
 // Keep the default in sync with DEFAULT_MODEL in src/coach/explain.ts.
 const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
 
+/** Firestore answers an unbounded users read in a single batch, so scanning
+ * the collection in one call holds every user document in memory at once and
+ * is billed as one enormous read. Both scheduled functions scan that
+ * collection, so the exposure grows with the user base and is invisible until
+ * it is not. Page instead: bounded memory, and a short page is still a
+ * complete unit of work rather than a run that dies holding everything. */
+const USER_PAGE_SIZE = 200;
+
+/** Yields every user document id in ascending order, one bounded page at a
+ * time. Ordered by document id so paging is stable across pages; without a
+ * total order a concurrent write can make a document appear in two pages or
+ * in none. */
+type Db = ReturnType<typeof getFirestore>;
+
+async function* eachUserId(db: Db): AsyncGenerator<string, void, undefined> {
+  // Only the final snapshot of the previous page is retained, so the cursor
+  // costs one document rather than one page.
+  let cursor: QueryDocumentSnapshot | undefined;
+  for (;;) {
+    let query = db
+      .collection("users")
+      .orderBy(FieldPath.documentId())
+      .limit(USER_PAGE_SIZE);
+    if (cursor) query = query.startAfter(cursor);
+    const page = await query.get();
+    if (page.empty) return;
+    for (const doc of page.docs) {
+      cursor = doc;
+      yield doc.id;
+    }
+    if (page.size < USER_PAGE_SIZE) return;
+  }
+}
+
 /** Gemini comments on computed facts; null means "use the fallback voice". */
 async function geminiText(facts: Record<string, unknown>): Promise<string | null> {
   const apiKey = process.env.GEMINI_API_KEY;
   if (!apiKey) return null;
   try {
+    // Imported here, not at the top of the module. All three exports in this
+    // file are served by one instance, so a top-level `import` of the Gemini
+    // SDK made every cold start pay for it — including reportBootFailure,
+    // which never calls Gemini and has a 20s budget. That eager import is
+    // the main reason module load measured ~81 MiB RSS, which is what the
+    // 128MiB OOM died on. A dynamic import defers the cost to the one code
+    // path that needs it, and it is skipped entirely when no key is set.
+    const { GoogleGenAI } = await import("@google/genai");
     const ai = new GoogleGenAI({ apiKey });
     const res = await ai.models.generateContent({
       model: MODEL,
@@ -80,16 +144,24 @@ export const sundayWeeklyReports = onSchedule(
     schedule: SUNDAY_CRON,
     timeZone: REPORT_TIME_ZONE,
     memory: "256MiB",
-    timeoutSeconds: 540,
+    // 1800s, not the gen1 ceiling of 540. This was 540, which is the *gen1*
+    // maximum; gen2 allows 3600. Per user the run does 1 existence check,
+    // 1 sessions query, up to 120 sequential exercise subcollection reads,
+    // and one Gemini generateContent call that routinely takes 5-15s — all
+    // awaited in sequence. 540s therefore budgeted ~4.4s per user before
+    // Gemini was counted, and the run is only partially complete when it
+    // expires: users past the cut are silently skipped for a week, because
+    // the per-user try/catch swallows the cut short exactly as it swallows a
+    // single bad user. The timeout was the cheapest available mitigation for
+    // a fan-out that is linear in user count; it is not a fix for that.
+    timeoutSeconds: 1800,
   },
   async () => {
     const db = getFirestore(initializeApp());
     const now = new Date();
     const weekStart = weekStartFor(now);
-    const users = await db.collection("users").get();
 
-    for (const user of users.docs) {
-      const uid = user.id;
+    for await (const uid of eachUserId(db)) {
       try {
         const id = reportIdFor(weekStart);
         const target = db.doc(`users/${uid}/weeklyReports/${id}`);
@@ -155,20 +227,19 @@ export const sendWorkoutReminders = onSchedule(
   async () => {
     const db = getFirestore(initializeApp());
     const now = new Date();
-    const users = await db.collection("users").get();
 
-    for (const user of users.docs) {
-      const uid = user.id;
+    for await (const uid of eachUserId(db)) {
       try {
-        const profileSnap = await user.ref.collection("settings").doc("profile").get();
+        const userRef = db.collection("users").doc(uid);
+        const profileSnap = await userRef.collection("settings").doc("profile").get();
         const reminderTimes = (profileSnap.data()?.reminderTimes ?? {}) as Record<string, string>;
         if (Object.keys(reminderTimes).length === 0) continue;
 
-        const tokens = await user.ref.collection("fcmTokens").get();
+        const tokens = await userRef.collection("fcmTokens").get();
         for (const t of tokens.docs) {
           const { token, timeZone } = t.data() as { token: string; timeZone: string };
           for (const slot of slotsDue({ reminderTimes, timeZone, now })) {
-            const stateSnap = await user.ref.collection("reminderState").doc(t.id).get();
+            const stateSnap = await userRef.collection("reminderState").doc(t.id).get();
             const lastSlot = stateSnap.data()?.slot as string | undefined;
             if (alreadySent(lastSlot, slot.slot)) continue;
 
@@ -192,7 +263,7 @@ export const sendWorkoutReminders = onSchedule(
                 slot: slot.slot,
                 sentAt: new Date(),
               });
-              await user.ref.collection("reminderState").doc(t.id).set(state);
+              await userRef.collection("reminderState").doc(t.id).set(state);
               console.log(`[reminders] ${uid}/${t.id}: sent ${slot.slot}`);
             } catch (err) {
               const code = (err as { code?: string }).code ?? "";

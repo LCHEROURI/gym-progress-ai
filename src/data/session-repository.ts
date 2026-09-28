@@ -41,7 +41,25 @@ const exercisePath = (uid: string, sid: string, exerciseKey: string) =>
 const setPath = (uid: string, sid: string, exerciseKey: string, setId: string) =>
   `${exercisePath(uid, sid, exerciseKey)}/sets/${setId}`;
 
-function withDateFields(data: unknown, fields: string[]): unknown {
+/**
+ * Firestore returns Timestamp objects; the Zod schemas declare z.date(). Every
+ * read path must convert before validating or the parse throws and the screen
+ * shows a generic load error.
+ *
+ * These lists are exported rather than inlined at each call site because the
+ * original bug was exactly a call site that forgot: fetchActiveWorkout
+ * converted and history.ts / progress.ts did not, so the restore path worked
+ * while History and Progress failed for every account with a saved workout.
+ * An account with no sessions never triggers the parse, which is why the unit
+ * tests (which mock getDocs with plain Dates) stayed green.
+ */
+export const SESSION_DATE_FIELDS = ["startedAt", "completedAt", "createdAt", "updatedAt"];
+export const EXERCISE_DATE_FIELDS = ["createdAt", "updatedAt"];
+export const SET_DATE_FIELDS = ["createdAt"];
+/** weeklyReportSchema stores createdAt as a z.date(); reports.ts reads it back. */
+export const REPORT_DATE_FIELDS = ["createdAt"];
+
+export function withDateFields(data: unknown, fields: string[]): unknown {
   if (!data || typeof data !== "object") return data;
   const record = data as Record<string, unknown>;
   const dates = new Set(fields);
@@ -262,5 +280,7 @@ export async function fetchExercises(
   const snap = await getDocs(
     collection(ctx.db, `${sessionPath(uid, sessionId)}/exercises`),
   );
-  return snap.docs.map((d) => exerciseSessionSchema.parse(d.data()));
+  return snap.docs.map((d) =>
+    exerciseSessionSchema.parse(withDateFields(d.data(), EXERCISE_DATE_FIELDS)),
+  );
 }
