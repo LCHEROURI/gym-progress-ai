@@ -151,7 +151,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 
 ### 1. Scope boundaries
 
-- Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via server-side `@google/genai` (`GoogleGenAI`, called directly in `functions/src/index.ts`). Genkit is not a dependency; if a doc or plan says "Genkit flows", it means server-side Gemini calls.
+- Vite + React + TypeScript PWA on the Google ecosystem only: Firebase Auth, Cloud Firestore, Firebase Hosting, Cloud Functions, Cloud Scheduler, optional Firebase Cloud Messaging, Google Gemini via `@google/genai` on the server (`GoogleGenAI`, called directly in `functions/src/index.ts`) and via `firebase/ai` on the client (`GoogleAIBackend` in `src/coach/`, `src/reports/observations.ts`). The client path is the reason App Check matters. Genkit is not a dependency; if a doc or plan says "Genkit flows", it means server-side Gemini calls.
 - No Supabase, no PostgreSQL, no Vercel-specific services, no external databases unless the user explicitly approves them.
 - Client code never imports server code. The reverse does happen, deliberately and in one direction: `functions/src/` imports pure logic from the client tree — `src/domain/session`, `src/progress/stats`, `src/reports/{weekly,observations}`, `src/ai/prompts/*` — plus the shared contract in `src/shared/`. Those modules must stay free of browser APIs and the Firebase Web SDK. That is not just convention: `functions/tsconfig.json` compiles them with `lib: ES2022` and no DOM, so a browser API would fail the functions build.
 - No application code exists until the phase that introduces it is started. The documents in this repo are the contract between phases.
@@ -182,7 +182,8 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 ### 5. Security requirements
 
 - API credentials live in Google Cloud Secret Manager — never client code, `.env.local`, git, or logs.
-- Auth is checked before any quota- or history-bearing work. **App Check is not enforced anywhere in this codebase** — there is no App Check code, and no AI callable endpoint exists yet (Gemini runs inside the scheduled weekly-report function with a server-side key). Treat App Check as a requirement to satisfy *before* any AI callable is exposed to clients, not as a control already in place.
+- Auth is checked before any quota- or history-bearing work. **App Check is initialized on the client** (`src/data/app-check.ts`, reCAPTCHA v3, opt-in via `VITE_APP_CHECK_SITE_KEY`, awaited in `initAuth` before Auth and Firestore are constructed). Firestore, Auth, and the client-side Gemini path in `src/coach` are therefore covered whenever the site key is configured and the token is being refreshed. Two deliberate exceptions, both written down in code: the emulator (does not implement App Check) and `/__boot` (the pre-React probe cannot hold a token — see `reportBootFailure` in `functions/src/index.ts`). Adding a new public endpoint means deciding which side of that line it falls on, not inheriting a default.
+- App Check initialization must never reject. `initAuth` awaits it, so a throwing initializer would take down sign-in for every user; a blocked reCAPTCHA, an ad blocker, or a bad site key degrades to "no token" with a `console.warn`. This is a security control that is allowed to fail open, on purpose, and the tests assert it.
 - Firebase Authentication with Google sign-in; no anonymous access to workout records.
 - Analytics are optional and off by default; sensitive health-style notes never enter analytics events.
 
@@ -217,7 +218,7 @@ AI never writes `weightUsed`, never changes the workout plan, never marks sets c
 ### Stack and commands
 
 - React 19 + TypeScript + Vite; Firebase Web SDK (Auth, Firestore, optional Messaging); Zod; hand-rolled SVG charts; PWA manifest + service worker.
-- Server: Firebase Cloud Functions (2nd gen) + Gemini via `@google/genai`.
+- Server: Firebase Cloud Functions (2nd gen) + Gemini via `@google/genai`; client Gemini via `firebase/ai`. App Check (reCAPTCHA v3) covers the client path.
 - Testing: Vitest + Testing Library + jsdom; `@firebase/rules-unit-testing`.
 
 ```bash
