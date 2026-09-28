@@ -246,7 +246,16 @@ export const sendWorkoutReminders = onSchedule(
  */
 export const reportBootFailure = onRequest(
   {
-    memory: "128MiB",
+    // 256MiB, matching the scheduled functions. This was 128MiB, which the
+    // runtime OOM-kills on every cold start: module load alone measures ~81 MiB
+    // RSS locally, and the deployed instance died at 141 MiB with
+    // "Memory limit of 128 MiB exceeded" — before the handler ever ran, so the
+    // 202-on-write-failure path below could not help. The endpoint scaled to
+    // zero, so the FIRST request after idle got a 500 while a burst of requests
+    // against one warm instance succeeded, which is exactly the shape of bug a
+    // smoke test misses. A monitoring endpoint that fails on cold start is
+    // blindest exactly when a bad deploy sends one device into a reload loop.
+    memory: "256MiB",
     timeoutSeconds: 20,
   },
   async (req, res) => {
