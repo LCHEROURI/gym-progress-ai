@@ -127,7 +127,11 @@ jobs:
   # HTML shell that bricks an iPhone until site data is cleared.
   smoke:
     name: Post-deploy smoke check
-    needs: [deploy]
+    # `deploy` is a reusable-workflow call, and a call job does not re-export
+    # another job's outputs. Without listing `preflight` here, `SITE` expands to
+    # the empty string and every curl fails on an unresolvable host — which is
+    # exactly what the first verification run did.
+    needs: [preflight, deploy]
     runs-on: ubuntu-latest
     steps:
       - name: Assert hosting routing survived the deploy
@@ -135,7 +139,15 @@ jobs:
           SITE: ${{ needs.preflight.outputs.project }}
         run: |
           set -euo pipefail
+          # An empty SITE makes every curl below fail on an unresolvable host,
+          # which reads as a deploy problem instead of a wiring problem. Fail
+          # loudly on the empty case instead.
+          if [ -z "${SITE}" ]; then
+            echo "::error::SITE is empty; the preflight outputs are not reaching this job"
+            exit 1
+          fi
           SITE="https://${SITE}.web.app"
+          echo "checking $SITE"
           fail=0
 
           check() { # name expected actual

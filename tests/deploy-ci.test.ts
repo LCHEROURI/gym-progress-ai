@@ -160,7 +160,22 @@ describe("deploy-hosting workflow", () => {
 
   it("runs the smoke check after the deploy, not in parallel", () => {
     const needs = caller.slice(caller.indexOf("\n  smoke:"));
-    expect(needs).toMatch(/needs:\s*\[deploy\]/);
+    expect(needs).toMatch(/needs:\s*\[preflight, deploy\]/);
+  });
+
+  it("gives the smoke job the preflight outputs it reads", () => {
+    // A reusable-workflow call job does not re-export another job's outputs.
+    // When `smoke` listed only `deploy`, `SITE` expanded to the empty string
+    // and every curl failed on an unresolvable host — which reads as a broken
+    // deploy rather than broken wiring. The first verification run caught it.
+    const smoke = caller.slice(caller.indexOf("\n  smoke:"));
+    expect(smoke).toContain("needs.preflight.outputs.project");
+    expect(smoke).toMatch(/needs:\s*\[[^\]]*preflight/);
+  });
+
+  it("refuses to run the smoke check against an empty SITE", () => {
+    // The guard that turns a confusing curl failure into a named cause.
+    expect(caller).toContain("SITE is empty");
   });
 });
 
