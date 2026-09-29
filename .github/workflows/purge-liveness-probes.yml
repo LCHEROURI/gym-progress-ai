@@ -49,6 +49,11 @@ jobs:
       - name: Purge probe documents
         env:
           FIRESTORE_PROJECT_ID: ${{ vars.FIREBASE_PROJECT }}
+          # Default MAX_DELETE is 1 for interactive safety; the scheduled job
+          # overrides to clear a day's accumulation of liveness-probe documents
+          # (~96/day) plus any backlog from skipped runs. Safe because the script
+          # matches on the exact buildId "liveness-probe" and nothing else.
+          MAX_DELETE: "500"
         run: |
           set -euo pipefail
           cd functions

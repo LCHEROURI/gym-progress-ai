@@ -7,7 +7,11 @@
  *   - it never deletes a whole collection; BUILD_ID must be an exact match
  *   - it prints every candidate in full BEFORE deleting anything
  *   - it refuses to run if the match is empty, or if the match is larger than
- *     MAX_DELETE (a bulk delete is a human decision, not a script's)
+ *     MAX_DELETE (a bulk delete is a human decision, not a script's). The
+ *     default is 1 for interactive use; the CI purge job sets MAX_DELETE via
+ *     env to clear a day's accumulation of liveness-probe documents (~96/day)
+ *     plus any backlog from skipped scheduled runs — safe because the script
+ *     matches on the exact buildId "liveness-probe" and nothing else.
  *   - it re-reads afterwards and reports the count that survived
  *
  * Usage:
@@ -18,7 +22,8 @@ import { getFirestore } from "firebase-admin/firestore";
 
 const PROJECT = process.env.FIRESTORE_PROJECT_ID ?? "gym-progress-ai-lcherouri";
 const COLLECTION = "bootFailures";
-const MAX_DELETE = 1;
+// Default 1 for interactive use; the CI purge job overrides via MAX_DELETE env.
+const MAX_DELETE = process.env.MAX_DELETE !== undefined ? Number(process.env.MAX_DELETE) : 1;
 
 const buildId = process.argv[2];
 const confirmed = process.argv.includes("--confirm");
