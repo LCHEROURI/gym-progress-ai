@@ -38,7 +38,7 @@ conditions:
       trigger:
         count: 1
 notificationChannels:
-  - projects/gym-progress-ai-lcherouri/notificationChannels/6702693093728203083
+  - projects/gym-progress-ai-lcherouri/notificationChannels/16757130955440014131
 alertStrategy:
   # One email when the incident opens, one when it closes. There is no repeat
   # interval in this API: a continuously-failing check notifies exactly once.

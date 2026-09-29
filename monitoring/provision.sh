@@ -33,7 +33,7 @@ set -euo pipefail
 PROJECT="${FIRESTORE_PROJECT_ID:-gym-progress-ai-lcherouri}"
 HOST="gym-progress-ai-lcherouri.web.app"
 CHECK_ID="boot-intake-liveness-NLXrhTcawlA"
-CHANNEL_ID="6702693093728203083"
+CHANNEL_ID="16757130955440014131"
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 echo "project: $PROJECT"
