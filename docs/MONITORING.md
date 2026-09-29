@@ -143,6 +143,132 @@ link. **An unverified channel sends nothing** — the policy will look armed and
 be completely silent. This is the single most likely way for this monitor to
 appear installed and not work.
 
+## Still open
+
+**Last live-verified: 2026-09-29.** The evidence below is current as of that
+date. Re-run the "Verify by hand" probes after any change to the monitor, and
+update this date if you do so.
+
+### What was verified live (2026-09-29)
+
+Two of the three previously-unverified gates now pass, checked by hand against
+the live project:
+
+1. **The endpoint answers 202.** A fresh POST to
+   `https://gym-progress-ai-lcherouri.web.app/__boot` returned `202`.
+
+2. **The `check_passed` metric is being written.** A REST query against
+   `monitoring.googleapis.com/uptime_check/check_passed` over the last 30
+   minutes returned 3 time series, all on resource `uptime_url`
+   `gym-progress-ai-lcherouri.web.app` — so the uptime check is running and
+   reporting, not just installed.
+
+3. **The channel in the policy file is the live channel.** Cloud Monitoring has
+   exactly one notification channel in the project:
+   `16757130955440014131` (`Boot intake liveness`), which is byte-for-byte the
+   channel named in `monitoring/boot-intake-alert-policy.yaml` line 41. The
+   policy file is not pointing at a stale or wrong channel.
+
+### What is still not working yet
+
+Two things remain, and both are now concrete instead of vague:
+
+- **The alert policy has not been created in Cloud Monitoring yet.** A query for
+  `alertPolicies` in the project returned 0 policies, so `boot-intake-liveness`
+  does not exist live yet. The good news: the precondition is now satisfied. The
+  uptime check `boot-intake-liveness-NLXrhTcawlA` is present and running (verified
+  live: `displayName: boot-intake-liveness`, `monitoredResource: uptime_url` on
+  `gym-progress-ai-lcherouri.web.app`, `period: 900s`, `path: /__boot`,
+  `acceptedResponseStatusCodes: [202]`, `contentMatchers: ["ok":true
+  CONTAINS_STRING]`, `selectedRegions: USA_IOWA/USA_OREGON/USA_VIRGINIA` — all of
+  which match `monitoring/boot-intake-liveness.yaml`). The check has also produced
+  data points (verified live: 3 `check_passed` time series in the last 30
+  minutes). So `monitoring/provision.sh` should now be able to create the policy.
+
+  **Next action (run locally):** on a machine with a working `gcloud auth
+  session` against `gym-progress-ai-lcherouri`, run
+  `bash monitoring/provision.sh`. The script is idempotent and safe to re-run;
+  when the policy exists it prints `alert policy: present`. This machine's
+  `gcloud` does not expose the `monitoring` subcommands the script uses, so it
+  is not the right runtime for this step — run it where `gcloud monitoring uptime
+  describe boot-intake-liveness-NLXrhTcawlA` works.
+
+  After running it, confirm the policy appeared:
+  ```bash
+  curl -s -H "Authorization: Bearer \$(gcloud auth print-access-token)" \
+    "https://monitoring.googleapis.com/v3/projects/gym-progress-ai-lcherouri/alertPolicies" \
+    | python3 -c "import json,sys; [print(p.get('displayName'), [n.split('/')[-1] for n in p.get('notificationChannels',[])]) for p in json.load(sys.stdin).get('alertPolicies',[])]"
+  ```
+  Expect a policy whose `displayName` is `boot-intake-liveness` and whose
+  channel list includes `16757130955440014131`.
+
+- **The channel is not yet `VERIFIED`.** Its `verificationStatus` is unverified.
+  GCP creates email channels in an unverified state and emails a verification
+  link; until that link is clicked, the channel sends nothing and the alert will
+  look armed and be silent. This is the single most likely way for this monitor
+  to appear installed and not work, and the doc says so in the section just
+  below.
+
+  **Next action (GCP Console):** open Monitoring → Alerting → Notification
+  channels, find `Boot intake liveness` (channel id
+  `16757130955440014131`), and click the verification link if one was sent. If
+  no link was sent, re-send it from the same panel. There is no CLI or API path
+  that bypasses this — verification is intentionally manual.
+
+  After verifying, confirm the status changed:
+  ```bash
+  curl -s -H "Authorization: Bearer \$(gcloud auth print-access-token)" \
+    "https://monitoring.googleapis.com/v3/projects/gym-progress-ai-lcherouri/notificationChannels" \
+    | python3 -c "import json,sys; [print(c['name'].split('/')[-1], c.get('verificationStatus')) for c in json.load(sys.stdin).get('notificationChannels',[])]"
+  ```
+  The channel in the policy file is `16757130955440014131`; its
+  `verificationStatus` must show `VERIFIED`.
+
+### Verify by hand
+
+Do this after any change to the monitor, and before believing an alert:
+
+1. Confirm the endpoint still answers:
+   ```bash
+   curl -s -o /dev/null -w '%{http_code}\n' -X POST \
+     https://gym-progress-ai-lcherouri.web.app/__boot \
+     -H 'Content-Type: text/plain' \
+     --data '{"buildId":"manual-probe","stage":"boot","message":"manual"}'
+   ```
+   Expect `202`.
+
+2. Confirm the metric is being written (an empty list means the check is not
+   running, regardless of what the console shows):
+   ```bash
+   curl -s -H "Authorization: Bearer \$(gcloud auth print-access-token)" \
+     "https://monitoring.googleapis.com/v3/projects/gym-progress-ai-lcherouri/timeSeries?filter=metric.type%3D%22monitoring.googleapis.com/uptime_check/check_passed%22"
+   ```
+   This project's `gcloud` does not expose `monitoring time-series list`, so use
+   the REST endpoint directly. Look for `timeSeries` entries with
+   `metric.type = monitoring.googleapis.com/uptime_check/check_passed` and
+   `resource.labels.host = gym-progress-ai-lcherouri.web.app`.
+
+3. Confirm the channel is `VERIFIED`:
+   ```bash
+   curl -s -H "Authorization: Bearer \$(gcloud auth print-access-token)" \
+     "https://monitoring.googleapis.com/v3/projects/gym-progress-ai-lcherouri/notificationChannels" \
+     | python3 -c "import json,sys; [print(c['name'].split('/')[-1], c.get('verificationStatus')) for c in json.load(sys.stdin).get('notificationChannels',[])]"
+   ```
+   The channel in the policy file is `16757130955440014131`; its
+   `verificationStatus` must be `VERIFIED`, not `UNVERIFIED`. If it is
+   unverified, click the link GCP emailed when the channel was created.
+
+4. Confirm the policy exists and names the right channel:
+   ```bash
+   curl -s -H "Authorization: Bearer \$(gcloud auth print-access-token)" \
+     "https://monitoring.googleapis.com/v3/projects/gym-progress-ai-lcherouri/alertPolicies" \
+     | python3 -c "import json,sys; [print(p.get('displayName'), [n.split('/')[-1] for n in p.get('notificationChannels',[])]) for p in json.load(sys.stdin).get('alertPolicies',[])]"
+   ```
+   There should be a policy whose `displayName` is `boot-intake-liveness` and
+   whose channel list includes `16757130955440014131`. If the list is empty, run
+   `monitoring/provision.sh` — the check now has a data point, so the policy can
+   be created.
+
 ## What is not monitored
 
 Stated so the gaps are known rather than assumed:

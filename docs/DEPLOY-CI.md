@@ -174,3 +174,31 @@ is not running — which is itself worth knowing.
 | 403 deploying | the deployer SA lacks `roles/firebasehosting.admin` |
 | Run succeeds, nothing deployed | the reusable workflow matched neither `preview` nor `production` — its jobs are gated on `github.event_name`, so only `push` to `main` and `pull_request` do anything. `tests/deploy-ci.test.ts` pins this. |
 | Run succeeds, production is stale | check the run's `deploy` job logs; a skipped reusable job is not a failure |
+
+## Registry alignment
+
+This app is listed in the central application registry
+(`LCHEROURI/universal-vibe-coding-bootstrap`, `apps.yml`) as
+`LCHEROURI/gym-progress-ai`, `status: active`, `platform: firebase-hosting`,
+`firebase_project: gym-progress-ai-lcherouri`, production URL
+`https://gym-progress-ai-lcherouri.web.app`, and preview pattern
+`https://gym-progress-ai-lcherouri--pr-{number}-*.web.app`.
+
+Keep that row and these repository variables in agreement. If any of the
+following change, update **both** places (the registry row and the repository
+variables), and the change should be the same in both:
+
+- `FIREBASE_PROJECT` ↔ `firebase_project` and `production_url` /
+  `preview_url_pattern`
+- `FIREBASE_DEPLOYER_SERVICE_ACCOUNT` — the registry does not store the SA, but
+  the deployer identity is part of the app's canonical deployment surface; if the
+  SA is rotated, record it somewhere stable (this doc is the current place) so the
+  registry row is not the only record of what this app is.
+- the production URL or preview URL pattern — if the reusable workflow's channel
+  naming ever changes from `pr-{number}`, update `preview_url_pattern` in the
+  registry row to match, or the registry will describe a pattern that no longer
+  exists.
+
+The registry is the inventory; the repository variables are the wiring. They
+describe the same app from different angles, and a mismatch between them is a real
+drift worth noticing — not a cosmetic difference.

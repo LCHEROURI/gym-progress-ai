@@ -33,6 +33,14 @@ jobs:
         with:
           node-version: '22'
           cache: npm
+      - name: Install functions dependencies
+        # The purge scripts (list-boot-failures.mjs, purge-boot-failures.mjs) live in
+        # functions/ and import firebase-admin from functions/package.json. The job
+        # checked out the repo and set up Node, but never installed those deps, so
+        # `node functions/list-boot-failures.mjs` fails with ERR_MODULE_NOT_FOUND.
+        # npm ci here matches the deploy workflow's functions predeploy path and uses
+        # the committed functions/package-lock.json.
+        run: npm ci --prefix functions
       - name: Authenticate to Firestore with OIDC
         uses: google-github-actions/auth@v2
         with:
