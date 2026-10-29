@@ -10,6 +10,7 @@ import { templateForRecovery } from "../domain/recovery";
 import { buildRecoveryInfo, nextWorkout } from "../today/recovery";
 import { parseEnv } from "../shared/env";
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveTemplate } from "../domain/effectiveTemplate";
 import { buildCompletionSummary } from "../workout/summary";
 import { buildCelebration, type Celebration } from "../workout/streak";
 import StreakToast from "../workout/StreakToast";
@@ -161,7 +162,7 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
   if (view === "coach") {
     return (
       <div className={cls}>
-        <CoachScreen db={db} uid={uid} app={app} />
+        <CoachScreen db={db} uid={uid} app={app} profile={profile} />
         {nav}
       </div>
     );
@@ -188,6 +189,7 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
           onStartWorkout={() => setOffPlan(nextWorkout(today).template)}
           onSeeProgress={() => navigate("progress")}
           onAskCoach={() => navigate("coach")}
+          profile={profile}
         />
         {nav}
       </div>
@@ -233,6 +235,7 @@ function ActiveFlow(props: {
     scheduledDate: props.date,
     coachEnabled: props.profile?.aiRecommendationsEnabled,
     weightUnit: props.profile?.weightUnit,
+    profile: props.profile,
   });
   const planPreview = usePlanPreview({
     db: props.db,
@@ -240,6 +243,7 @@ function ActiveFlow(props: {
     template: props.template,
     coachEnabled: props.profile?.aiRecommendationsEnabled,
     machineIncrements: props.profile?.machineIncrements,
+    profile: props.profile,
   });
 
   const [celebration, setCelebration] = useState<Celebration | null>(null);
@@ -257,14 +261,14 @@ function ActiveFlow(props: {
   const completedDate = props.date;
   const onRecoveredTemplate = props.onRecoveredTemplate;
   const plannedTemplate = props.template;
-  const workoutTemplate =
+  const rawRecoveryTemplate =
     templateForRecovery(flow.session, new Date(), plannedTemplate) ?? plannedTemplate;
+  const workoutTemplate = buildEffectiveTemplate(rawRecoveryTemplate, props.profile);
 
   useEffect(() => {
-    onRecoveredTemplate(
-      flow.session ? templateForRecovery(flow.session, new Date(), plannedTemplate) : null,
-    );
-  }, [flow.session, onRecoveredTemplate, plannedTemplate]);
+    const raw = flow.session ? templateForRecovery(flow.session, new Date(), plannedTemplate) : null;
+    onRecoveredTemplate(raw ? buildEffectiveTemplate(raw, props.profile) : null);
+  }, [flow.session, onRecoveredTemplate, plannedTemplate, props.profile]);
 
   // Fresh facts at completion so the streak is right even in a long-lived tab.
   useEffect(() => {
@@ -305,6 +309,7 @@ function ActiveFlow(props: {
             template: workoutTemplate,
             exercises: flow.exercises,
             sets: flow.sets,
+            profile: props.profile,
           })}
           onDone={() => {
             flow.reset();
@@ -347,6 +352,7 @@ function ActiveFlow(props: {
           pickedWeights={pickedWeights}
           onPickWeight={pickWeight}
           weightUnit={props.profile?.weightUnit}
+          profile={props.profile}
         />
         <BottomNav view={props.view} onNavigate={props.onNavigate} />
       </>

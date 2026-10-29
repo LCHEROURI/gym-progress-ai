@@ -28,6 +28,31 @@ describe("classifyQuestion (brief's example questions)", () => {
     });
   });
 
+  it("recognizes custom exercise names such as biceps curl", () => {
+    const customKnown = [
+      ...knownExercises,
+      { key: "custom-biceps-curl", name: "Biceps Curl" },
+    ];
+    expect(
+      classifyQuestion({
+        question: "what weight for biceps curl",
+        knownExercises: customKnown,
+      }),
+    ).toMatchObject({
+      intent: "weightToday",
+      exerciseKey: "custom-biceps-curl",
+    });
+    expect(
+      classifyQuestion({
+        question: "how is my custom biceps curl progressing?",
+        knownExercises: customKnown,
+      }),
+    ).toMatchObject({
+      intent: "progress",
+      exerciseKey: "custom-biceps-curl",
+    });
+  });
+
   it("routes superlative and stall questions", () => {
     expect(classify("Which exercise has improved most?")).toMatchObject({
       intent: "mostImproved",

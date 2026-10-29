@@ -638,6 +638,39 @@ input {
   width: 8.5em;
 }
 
+.setRow input[type="text"] {
+  flex: 1 1 10em;
+  max-width: 11em;
+}
+
+.emptyExercises {
+  margin: 10px 0;
+}
+
+.extraExerciseList {
+  list-style: none;
+  margin: 10px 0;
+  padding: 0;
+}
+
+.removeButton {
+  min-height: 44px;
+  padding: 4px 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: #a82020;
+  background: none;
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.extraExerciseForm {
+  margin: 12px 0;
+  display: grid;
+  gap: 8px;
+}
+
 .feelRow {
   display: flex;
   flex-wrap: wrap;

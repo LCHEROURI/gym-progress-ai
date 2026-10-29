@@ -1,21 +1,25 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import { TEMPLATES } from "../domain/templates";
+import type { ExtraExercise, Profile } from "../data/settings";
 import { fetchProgressFacts, type ProgressFacts } from "../data/progress";
 import { askCoach, type CoachMessage } from "./chat";
 import { buildCoachContext } from "./context";
 import { classifyQuestion, type KnownExercise } from "./intent";
 import { lastEffortFeedback, suggestQuickChips } from "./chips";
 
-const KNOWN_EXERCISES: KnownExercise[] = [
-  ...new Map(
-    TEMPLATES.flatMap((template) => template.exercises).map((exercise) => [
-      exercise.key,
-      { key: exercise.key, name: exercise.name },
-    ]),
-  ).values(),
-];
+export function buildKnownExercises(extraExercises?: ExtraExercise[]): KnownExercise[] {
+  const base: KnownExercise[] = TEMPLATES.flatMap((template) => template.exercises).map((exercise) => ({
+    key: exercise.key,
+    name: exercise.name,
+  }));
+  const extras: KnownExercise[] = (extraExercises ?? []).map((e) => ({
+    key: e.key,
+    name: e.name,
+  }));
+  return [...new Map([...base, ...extras].map((e) => [e.key, e])).values()];
+}
 
 export interface CoachTurn {
   facts: ProgressFacts | null;
@@ -41,6 +45,8 @@ export function useCoachTurn(input: {
   uid: string;
   app: FirebaseApp;
   today?: Date;
+  extraExercises?: ExtraExercise[];
+  profile?: Pick<Profile, "extraExercises"> | null;
 }): CoachTurn {
   const [facts, setFacts] = useState<ProgressFacts | null>(null);
   const [historyLoading, setHistoryLoading] = useState(true);
@@ -50,6 +56,12 @@ export function useCoachTurn(input: {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const factsRequest = useRef<Promise<ProgressFacts> | null>(null);
+
+  const extraExercises = input.extraExercises ?? input.profile?.extraExercises;
+  const knownExercises = useMemo(
+    () => buildKnownExercises(extraExercises),
+    [extraExercises],
+  );
 
   const loadFacts = useCallback((): Promise<ProgressFacts> => {
     if (facts) return Promise.resolve(facts);
@@ -103,7 +115,7 @@ export function useCoachTurn(input: {
 
         const classified = classifyQuestion({
           question: trimmed,
-          knownExercises: KNOWN_EXERCISES,
+          knownExercises,
         });
         const context = buildCoachContext({
           classified,
@@ -126,7 +138,7 @@ export function useCoachTurn(input: {
         setBusy(false);
       }
     },
-    [input.app, busy, facts, input.today, loadFacts, messages],
+    [input.app, busy, facts, input.today, loadFacts, messages, knownExercises],
   );
 
   const chips = suggestQuickChips(facts ? lastEffortFeedback(facts) : null);

@@ -12,10 +12,12 @@ vi.mock("firebase/firestore", () => ({
 }));
 
 import {
+  createCustomExerciseKey,
   defaultProfile,
   fetchProfile,
   profileSchema,
   saveProfile,
+  slugifyExercise,
 } from "./settings";
 
 beforeEach(() => {
@@ -34,6 +36,76 @@ describe("profileSchema", () => {
       profileSchema.parse({ ...p, reminderTimes: { mon: "9am" } }),
     ).toThrow();
     expect(() => profileSchema.parse({ ...p, defaultRestSeconds: 30 })).toThrow();
+  });
+
+  it("validates extraExercises bounded to 20 items with resistance shape", () => {
+    const p = defaultProfile();
+    const valid = {
+      ...p,
+      extraExercises: [
+        {
+          key: "custom-biceps-curl",
+          name: "Biceps Curl",
+          targetSets: 2,
+          targetRepsMin: 10,
+          targetRepsMax: 10,
+          tip: "Keep elbows pinned.",
+        },
+      ],
+    };
+    expect(() => profileSchema.parse(valid)).not.toThrow();
+
+    // Rejects more than 20
+    const over20 = {
+      ...p,
+      extraExercises: Array.from({ length: 21 }, (_, i) => ({
+        key: `custom-ex-${i}`,
+        name: `Exercise ${i}`,
+        targetSets: 2,
+        targetRepsMin: 10,
+        targetRepsMax: 10,
+        tip: "",
+      })),
+    };
+    expect(() => profileSchema.parse(over20)).toThrow();
+
+    // Rejects invalid targetSets
+    expect(() =>
+      profileSchema.parse({
+        ...p,
+        extraExercises: [
+          {
+            key: "custom-curl",
+            name: "Curl",
+            targetSets: 0,
+            targetRepsMin: 10,
+            targetRepsMax: 10,
+            tip: "",
+          },
+        ],
+      }),
+    ).toThrow();
+  });
+});
+
+describe("custom exercise key helpers", () => {
+  it("slugifies exercise names cleanly", () => {
+    expect(slugifyExercise("Biceps Curl")).toBe("biceps-curl");
+    expect(slugifyExercise("  Triceps Pushdown!! ")).toBe("triceps-pushdown");
+    expect(slugifyExercise("")).toBe("exercise");
+  });
+
+  it("dedupes custom exercise keys against existing keys", () => {
+    expect(createCustomExerciseKey("Biceps Curl", [])).toBe("custom-biceps-curl");
+    expect(createCustomExerciseKey("Biceps Curl", ["custom-biceps-curl"])).toBe(
+      "custom-biceps-curl-2",
+    );
+    expect(
+      createCustomExerciseKey("Biceps Curl", [
+        "custom-biceps-curl",
+        "custom-biceps-curl-2",
+      ]),
+    ).toBe("custom-biceps-curl-3");
   });
 });
 

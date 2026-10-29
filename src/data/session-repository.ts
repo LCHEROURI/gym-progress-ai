@@ -23,6 +23,8 @@ import {
   type WorkoutSet,
 } from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveTemplate } from "../domain/effectiveTemplate";
+import type { Profile } from "./settings";
 
 export interface RepoCtx {
   db: Firestore;
@@ -108,18 +110,20 @@ export async function startSession(
     initialWeights?: Record<string, number>;
     weightUnit?: "lb" | "kg";
     now?: Date;
+    profile?: Pick<Profile, "extraExercises"> | null;
   },
 ): Promise<{ session: WorkoutSession; exercises: ExerciseSession[] }> {
   const now = input.now ?? new Date();
-  const draft = buildSession({ ...input, now });
+  const template = buildEffectiveTemplate(input.template, input.profile);
+  const draft = buildSession({ ...input, template, now });
   const session = workoutSessionSchema.parse({
     ...draft,
     status: "in_progress",
     startedAt: now,
   });
-  const exercises = input.template.exercises.map((t) =>
+  const exercises = template.exercises.map((t) =>
     buildExerciseSession({
-      template: input.template,
+      template,
       order: t.order,
       previousWeight: input.previousWeights[t.key] ?? null,
       initialWeight: input.initialWeights?.[t.key],

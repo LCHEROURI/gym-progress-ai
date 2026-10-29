@@ -1,4 +1,6 @@
 import { templateForWeekday, type WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveExercises } from "../domain/effectiveTemplate";
+import type { Profile } from "../data/settings";
 import InstallAppButton from "../install/InstallAppButton";
 import IosNudgeBanner from "../install/IosNudgeBanner";
 import type { RecoveryInfo } from "../today/recovery";
@@ -26,6 +28,7 @@ interface Props {
   /** Whether ANY workout is completed; undefined while history is loading. */
   hasCompleted?: boolean;
   weightUnit?: "lb" | "kg";
+  profile?: Pick<Profile, "extraExercises"> | null;
 }
 
 export default function TodayScreen({
@@ -42,6 +45,7 @@ export default function TodayScreen({
   onAskCoach,
   hasCompleted,
   weightUnit,
+  profile,
 }: Props) {
   const template = plan ?? templateForWeekday(today.getDay());
   const dateLine = today.toLocaleDateString("en-US", {
@@ -65,6 +69,7 @@ export default function TodayScreen({
           pickedWeights={pickedWeights}
           onPickWeight={onPickWeight}
           weightUnit={weightUnit}
+          profile={profile}
         />
       ) : (
         <RecoveryDay
@@ -87,6 +92,7 @@ function WorkoutPlan({
   pickedWeights,
   onPickWeight,
   weightUnit,
+  profile,
 }: {
   template: WorkoutTemplate;
   onStart?: () => void;
@@ -95,17 +101,19 @@ function WorkoutPlan({
   pickedWeights?: Record<string, number | undefined>;
   onPickWeight?: (exerciseKey: string, weight: number | null) => void;
   weightUnit?: "lb" | "kg";
+  profile?: Pick<Profile, "extraExercises"> | null;
 }) {
+  const exercises = buildEffectiveExercises(template, profile);
   const unit = (weightUnit ?? "lb").toUpperCase();
   return (
     <>
       <h2 className="workoutName">{template.name.toUpperCase()}</h2>
-      <p className="progressLine">0 of {template.exercises.length} complete</p>
+      <p className="progressLine">0 of {exercises.length} complete</p>
       <button type="button" className="primaryButton" onClick={onStart}>
         START WORKOUT
       </button>
       <ul className="cardList">
-        {template.exercises.map((e) => {
+        {exercises.map((e) => {
           const prev = previousWeights?.[e.key] ?? null;
           const next = nextWeights?.[e.key];
           const picked =

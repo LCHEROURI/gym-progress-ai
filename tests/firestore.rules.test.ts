@@ -83,6 +83,45 @@ describe.skipIf(!live)("firestore.rules (emulator)", () => {
     await assertFails(env.authenticatedContext("u1").firestore().doc("secrets/s1").set({ x: 1 }));
   });
 
+  it("settings/profile: owner writes valid profile with extraExercises, rejects >20", async () => {
+    const db = env.authenticatedContext("u1").firestore();
+    const validProfile = {
+      displayName: "Pat",
+      weightUnit: "lb",
+      defaultRestSeconds: 75,
+      aiRecommendationsEnabled: true,
+      largeTextEnabled: true,
+      machineIncrements: {},
+      reminderTimes: { mon: "09:00" },
+      extraExercises: [
+        {
+          key: "custom-biceps-curl",
+          name: "Biceps Curl",
+          targetSets: 2,
+          targetRepsMin: 10,
+          targetRepsMax: 10,
+          tip: "",
+        },
+      ],
+      createdAt: new Date(0),
+      updatedAt: new Date(0),
+    };
+    await assertSucceeds(db.doc("users/u1/settings/profile").set(validProfile));
+
+    const tooMany = {
+      ...validProfile,
+      extraExercises: Array.from({ length: 21 }, (_, i) => ({
+        key: `custom-${i}`,
+        name: `Custom ${i}`,
+        targetSets: 2,
+        targetRepsMin: 10,
+        targetRepsMax: 10,
+        tip: "",
+      })),
+    };
+    await assertFails(db.doc("users/u1/settings/profile").set(tooMany));
+  });
+
   it("aiRecommendations: create ok, provenance immutable, decision mutable", async () => {
     const rec = {
       exerciseKey: "leg-press", date: "2026-09-28", previousWeight: 70, suggestedWeight: 75,

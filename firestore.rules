@@ -4,7 +4,7 @@ rules_version = '2';
 // Assumed Data Model — docs/DATA-MODEL.md (2026-09-23)
 // users/{uid}: displayName <=60, weightUnit 'lb'|'kg', defaultRestSeconds 60|75|90,
 //   aiRecommendationsEnabled bool, largeTextEnabled bool,
-//   machineIncrements map<=50, reminderTimes map<=3, createdAt/updatedAt timestamps
+//   machineIncrements map<=50, reminderTimes map<=3, extraExercises list<=20, createdAt/updatedAt timestamps
 // settings/profile: profile shape as above
 // workoutTemplates/{id}: name <=80, weekday 1|3|5,
 //   workoutType 'strength_bike'|'balance_strength'|'full_body_walk', exercises list<=30
@@ -92,12 +92,13 @@ service cloud.firestore {
     // ---------- domain validators (used on BOTH create and update) ----------
     function isValidProfile() {
       return hasOnly(['displayName','weightUnit','defaultRestSeconds','aiRecommendationsEnabled',
-        'largeTextEnabled','machineIncrements','reminderTimes','createdAt','updatedAt'])
+        'largeTextEnabled','machineIncrements','reminderTimes','extraExercises','createdAt','updatedAt'])
         && str('displayName', 0, 60)
         && request.resource.data.weightUnit in ['lb','kg']
         && request.resource.data.defaultRestSeconds in [60, 75, 90]
         && bool('aiRecommendationsEnabled') && bool('largeTextEnabled')
         && isMap('machineIncrements', 50) && isMap('reminderTimes', 3)
+        && isList('extraExercises', 20)
         && optTimestamp('createdAt') && optTimestamp('updatedAt');
     }
 

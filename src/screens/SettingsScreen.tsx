@@ -1,4 +1,6 @@
+import { useState } from "react";
 import {
+  createCustomExerciseKey,
   RESISTANCE_MACHINES,
   type Profile,
 } from "../data/settings";
@@ -23,6 +25,40 @@ export default function SettingsScreen({ profile, onSave }: Props) {
         [key]: Math.min(100, Math.max(0.5, value || 5)),
       },
     });
+
+  const removeExtra = (key: string) => {
+    update({
+      extraExercises: (profile.extraExercises ?? []).filter((e) => e.key !== key),
+    });
+  };
+
+  const addExtra = (exercise: {
+    name: string;
+    targetSets: number;
+    targetRepsMin: number;
+    targetRepsMax: number;
+    tip?: string;
+  }) => {
+    const list = profile.extraExercises ?? [];
+    if (list.length >= 20) return;
+    const key = createCustomExerciseKey(
+      exercise.name,
+      list.map((e) => e.key),
+    );
+    update({
+      extraExercises: [
+        ...list,
+        {
+          key,
+          name: exercise.name.trim(),
+          targetSets: exercise.targetSets,
+          targetRepsMin: exercise.targetRepsMin,
+          targetRepsMax: exercise.targetRepsMax,
+          tip: exercise.tip ?? "",
+        },
+      ],
+    });
+  };
 
   return (
     <section aria-label="Settings">
@@ -107,8 +143,151 @@ export default function SettingsScreen({ profile, onSave }: Props) {
         </label>
       ))}
 
+      <h3 className="sectionTitle">MY EXTRA EXERCISES</h3>
+      <p className="tip">Exercises appended to every workout automatically.</p>
+
+      {(profile.extraExercises ?? []).length === 0 ? (
+        <div className="emptyExercises">
+          <p className="tip">No extra exercises yet. Tap a suggestion to add:</p>
+          <div className="feelRow" role="group" aria-label="Exercise suggestions">
+            <button
+              type="button"
+              onClick={() =>
+                addExtra({
+                  name: "Biceps Curl",
+                  targetSets: 2,
+                  targetRepsMin: 10,
+                  targetRepsMax: 10,
+                })
+              }
+            >
+              + Biceps Curl (2 × 10)
+            </button>
+            <button
+              type="button"
+              onClick={() =>
+                addExtra({
+                  name: "Triceps Pushdown",
+                  targetSets: 2,
+                  targetRepsMin: 10,
+                  targetRepsMax: 10,
+                })
+              }
+            >
+              + Triceps Pushdown (2 × 10)
+            </button>
+          </div>
+        </div>
+      ) : (
+        <ul className="extraExerciseList">
+          {(profile.extraExercises ?? []).map((ex) => (
+            <li key={ex.key} className="setRow">
+              <div>
+                <strong>{ex.name}</strong>
+                <span className="exerciseTarget">
+                  {" "}
+                  ({ex.targetSets} × {ex.targetRepsMin}
+                  {ex.targetRepsMax !== ex.targetRepsMin ? `–${ex.targetRepsMax}` : ""})
+                </span>
+              </div>
+              <button
+                type="button"
+                className="removeButton"
+                onClick={() => removeExtra(ex.key)}
+                aria-label={`Remove ${ex.name}`}
+              >
+                Remove
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      <AddExtraExerciseForm
+        onAdd={addExtra}
+        disabled={(profile.extraExercises ?? []).length >= 20}
+      />
+
       <InstallSection />
     </section>
+  );
+}
+
+function AddExtraExerciseForm({
+  onAdd,
+  disabled,
+}: {
+  onAdd: (ex: {
+    name: string;
+    targetSets: number;
+    targetRepsMin: number;
+    targetRepsMax: number;
+  }) => void;
+  disabled: boolean;
+}) {
+  const [name, setName] = useState("");
+  const [sets, setSets] = useState("2");
+  const [reps, setReps] = useState("10");
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || disabled) return;
+    const parsedSets = Math.min(20, Math.max(1, Number(sets) || 2));
+    const parsedReps = Math.min(200, Math.max(1, Number(reps) || 10));
+    onAdd({
+      name: trimmed,
+      targetSets: parsedSets,
+      targetRepsMin: parsedReps,
+      targetRepsMax: parsedReps,
+    });
+    setName("");
+    setSets("2");
+    setReps("10");
+  };
+
+  return (
+    <form className="extraExerciseForm" onSubmit={handleSubmit}>
+      <label className="setRow">
+        Exercise name
+        <input
+          type="text"
+          aria-label="New exercise name"
+          placeholder="e.g. Biceps Curl"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
+      <label className="setRow">
+        Target sets
+        <input
+          type="number"
+          min="1"
+          max="20"
+          aria-label="New exercise sets"
+          value={sets}
+          onChange={(e) => setSets(e.target.value)}
+        />
+      </label>
+      <label className="setRow">
+        Target reps
+        <input
+          type="number"
+          min="1"
+          max="200"
+          aria-label="New exercise reps"
+          value={reps}
+          onChange={(e) => setReps(e.target.value)}
+        />
+      </label>
+      <button
+        type="submit"
+        className="secondaryButton"
+        disabled={disabled || !name.trim()}
+      >
+        ADD EXERCISE
+      </button>
+    </form>
   );
 }
 

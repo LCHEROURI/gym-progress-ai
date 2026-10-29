@@ -7,6 +7,8 @@
 import { useEffect, useState } from "react";
 import type { Firestore } from "firebase/firestore";
 import type { WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveExercises } from "../domain/effectiveTemplate";
+import type { Profile } from "../data/settings";
 import { fetchPreviousWeights, type RepoCtx } from "../data/session-repository";
 import { fetchRecentDetails } from "../data/history";
 import { buildLoads } from "../coach/loads";
@@ -30,6 +32,7 @@ export function usePlanPreview(input: {
   template: WorkoutTemplate;
   coachEnabled?: boolean;
   machineIncrements?: Record<string, number>;
+  profile?: Pick<Profile, "extraExercises"> | null;
 }): PlanPreview {
   const [preview, setPreview] = useState<PlanPreview>(EMPTY);
   const increments = input.machineIncrements;
@@ -37,7 +40,8 @@ export function usePlanPreview(input: {
   useEffect(() => {
     let cancelled = false;
     const ctx: RepoCtx = { db: input.db };
-    const keys = input.template.exercises.map((e) => e.key);
+    const effectiveExercises = buildEffectiveExercises(input.template, input.profile);
+    const keys = effectiveExercises.map((e) => e.key);
     Promise.all([
       fetchPreviousWeights(ctx, input.uid, keys).catch(
         (): Record<string, number | null> => ({}),
@@ -50,7 +54,7 @@ export function usePlanPreview(input: {
         if (cancelled) return;
         const loads = buildLoads(recent);
         const nextWeights: Record<string, NextWeight | undefined> = {};
-        for (const t of input.template.exercises) {
+        for (const t of effectiveExercises) {
           if (t.kind !== "resistance") continue;
           const prev = previousWeights[t.key] ?? null;
           // No history, no suggestion — never fabricate numbers.
@@ -74,7 +78,7 @@ export function usePlanPreview(input: {
     return () => {
       cancelled = true;
     };
-  }, [input.db, input.uid, input.template, input.coachEnabled, increments]);
+  }, [input.db, input.uid, input.template, input.coachEnabled, increments, input.profile]);
 
   return preview;
 }

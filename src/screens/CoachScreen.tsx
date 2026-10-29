@@ -1,17 +1,22 @@
 import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
+import type { ExtraExercise, Profile } from "../data/settings";
 import { useCoachTurn } from "../coach/useCoachTurn";
 
 export default function CoachScreen({
   db,
   uid,
   app,
+  profile,
+  extraExercises,
 }: {
   db: Firestore;
   uid: string;
   app: FirebaseApp;
+  profile?: Pick<Profile, "extraExercises"> | null;
+  extraExercises?: ExtraExercise[];
 }) {
-  const turn = useCoachTurn({ db, uid, app });
+  const turn = useCoachTurn({ db, uid, app, profile, extraExercises });
 
   return (
     <section aria-label="AI coach">

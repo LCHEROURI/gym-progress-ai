@@ -38,6 +38,7 @@ bootFailures/{dedupeKey}                       ← pre-React boot failures (top 
 | largeTextEnabled | boolean | default **true** |
 | machineIncrements | map<string, number> | exerciseKey → step in current unit |
 | reminderTimes | map<string, string> | `mon`/`wed`/`fri` → `HH:mm` |
+| extraExercises | array<ExtraExercise> | user custom resistance exercises, max 20 |
 | createdAt / updatedAt | timestamp | |
 
 `users/{uid}/settings/profile` carries the same profile document shape (the

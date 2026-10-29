@@ -157,4 +157,38 @@ describe("useCoachTurn · complete grounded turn", () => {
       "You completed 1 workout this month (1 in total).",
     );
   });
+
+  it("recognizes user-defined extra exercises in intent context", async () => {
+    const { result } = renderHook(() =>
+      useCoachTurn({
+        db,
+        uid: "u1",
+        app,
+        extraExercises: [
+          {
+            key: "custom-biceps-curl",
+            name: "Biceps Curl",
+            targetSets: 2,
+            targetRepsMin: 10,
+            targetRepsMax: 10,
+            tip: "",
+          },
+        ],
+      }),
+    );
+    await waitFor(() => expect(result.current.historyLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.send("what weight for biceps curl");
+    });
+
+    expect(mocks.askCoach).toHaveBeenCalledWith(
+      expect.objectContaining({
+        context: expect.objectContaining({
+          intent: "weightToday",
+          exerciseKey: "custom-biceps-curl",
+        }),
+      }),
+    );
+  });
 });

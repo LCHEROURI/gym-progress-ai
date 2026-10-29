@@ -4,6 +4,8 @@ import type {
   WorkoutSet,
 } from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveExercises } from "../domain/effectiveTemplate";
+import type { Profile } from "../data/settings";
 
 export interface LoggedSet extends WorkoutSet {
   exerciseKey: string;
@@ -27,10 +29,12 @@ export function buildCompletionSummary(input: {
   exercises: ExerciseSession[];
   sets: LoggedSet[];
   completedAt?: Date;
+  profile?: Pick<Profile, "extraExercises"> | null;
 }): CompletionSummary {
-  const kindByKey = new Map(input.template.exercises.map((e) => [e.key, e.kind]));
+  const effectiveExercises = buildEffectiveExercises(input.template, input.profile);
+  const kindByKey = new Map(effectiveExercises.map((e) => [e.key, e.kind]));
   const strengthKeys = new Set(
-    input.template.exercises.filter((e) => e.kind === "resistance").map((e) => e.key),
+    effectiveExercises.filter((e) => e.kind === "resistance").map((e) => e.key),
   );
 
   const done = input.exercises.filter((e) => e.completed);

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import type { Firestore } from "firebase/firestore";
 import type { ExerciseSession, WorkoutSession, WorkoutSet } from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
+import { buildEffectiveTemplate } from "../domain/effectiveTemplate";
+import type { Profile } from "../data/settings";
 import {
   fetchActiveWorkout,
   fetchPreviousWeights,
@@ -63,6 +65,7 @@ export function useWorkoutSession(input: {
   syncState?: SyncState;
   coachEnabled?: boolean;
   weightUnit?: "lb" | "kg";
+  profile?: Pick<Profile, "extraExercises"> | null;
 }): WorkoutFlow {
   const [session, setSession] = useState<WorkoutSession | null>(null);
   const [exercises, setExercises] = useState<ExerciseSession[]>([]);
@@ -108,7 +111,9 @@ export function useWorkoutSession(input: {
     starting.current = true;
     try {
       setError(null);
-      const keys = input.template.exercises.map((e) => e.key);
+      const effectiveTemplate = buildEffectiveTemplate(input.template, input.profile);
+      const effectiveExercises = effectiveTemplate.exercises;
+      const keys = effectiveExercises.map((e) => e.key);
       let previousWeightsUnavailable = false;
       const [previousWeights, recent] = await Promise.all([
         fetchPreviousWeights({ db }, uid, keys).catch(() => {
@@ -120,7 +125,7 @@ export function useWorkoutSession(input: {
       const created = await startSession({ db }, {
         sessionId: newSessionId(),
         uid,
-        template: input.template,
+        template: effectiveTemplate,
         scheduledDate: input.scheduledDate,
         previousWeights,
         initialWeights,
@@ -139,7 +144,7 @@ export function useWorkoutSession(input: {
       const loads = buildLoads(recent);
       const suggestions: Record<string, CoachSuggestion> = {};
       try {
-        for (const exercise of input.template.exercises) {
+        for (const exercise of effectiveExercises) {
           if (exercise.kind !== "resistance") continue;
           const recommendation = recommendWeight({
             loads: loads[exercise.key] ?? [],
@@ -177,7 +182,7 @@ export function useWorkoutSession(input: {
     } finally {
       starting.current = false;
     }
-  }, [db, uid, input.template, input.scheduledDate, input.coachEnabled, input.weightUnit]);
+  }, [db, uid, input.template, input.scheduledDate, input.coachEnabled, input.weightUnit, input.profile]);
 
   const patchExercise = useCallback(
     async (exerciseKey: string, patch: Partial<ExerciseSession>) => {
