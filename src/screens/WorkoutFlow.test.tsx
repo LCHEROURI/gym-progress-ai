@@ -253,3 +253,79 @@ describe("rest day is usable (start the next workout early)", () => {
     }
   });
 });
+
+describe("mid-workout navigation and recovery", () => {
+  it("navigating away and back restores the in-progress workout with logged sets intact", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-28T09:00:00"));
+    try {
+      render(<WorkoutFlow uid="u1" />);
+      fireEvent.click(await screen.findByRole("button", { name: "START WORKOUT" }));
+      await screen.findByRole("button", { name: "FINISH WORKOUT" });
+
+      // Bottom navigation is visible on the mid-workout screen
+      expect(screen.getByRole("navigation", { name: "Main" })).toBeInTheDocument();
+
+      // Log a set on Leg Press
+      const repInputs = screen.getAllByLabelText("Set 1 reps");
+      fireEvent.change(repInputs[0]!, { target: { value: "10" } });
+      expect(mocks.logSet).toHaveBeenCalledWith(
+        expect.anything(),
+        expect.objectContaining({
+          exerciseKey: "leg-press",
+          set: expect.objectContaining({ setNumber: 1, reps: 10, completed: true }),
+        }),
+      );
+
+      // Tap another tab (HISTORY)
+      fireEvent.click(screen.getByRole("button", { name: "HISTORY" }));
+      expect(await screen.findByRole("heading", { name: "History" })).toBeInTheDocument();
+
+      // Prepare active workout return for when the user navigates back to TODAY
+      const session = {
+        ...buildSession({
+          sessionId: "active-session",
+          uid: "u1",
+          template: MONDAY,
+          scheduledDate: "2026-09-28",
+          now: new Date("2026-09-28T09:00:00"),
+        }),
+        status: "in_progress" as const,
+        startedAt: new Date("2026-09-28T09:00:00"),
+      };
+      const exercises = MONDAY.exercises.map((exercise) =>
+        buildExerciseSession({
+          template: MONDAY,
+          order: exercise.order,
+          previousWeight: null,
+          weightUnit: exercise.kind === "resistance" ? "lb" : null,
+          now: new Date("2026-09-28T09:00:00"),
+        }),
+      );
+      const loggedSets = [
+        {
+          exerciseKey: "leg-press",
+          setNumber: 1,
+          weight: 70,
+          reps: 10,
+          completed: true,
+          createdAt: new Date("2026-09-28T09:00:00"),
+        },
+      ];
+      mocks.fetchActiveWorkout.mockResolvedValueOnce({
+        session,
+        exercises,
+        sets: loggedSets,
+      } as never);
+
+      // Tap TODAY again
+      fireEvent.click(screen.getByRole("button", { name: "TODAY" }));
+
+      // Workout screen returns with in-progress workout restored
+      expect(await screen.findByRole("button", { name: "FINISH WORKOUT" })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "STRENGTH + BIKE" })).toBeInTheDocument();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+});

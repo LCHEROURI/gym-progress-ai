@@ -359,22 +359,24 @@ function ActiveFlow(props: {
     );
   }
 
-  // Mid-workout: no navigation — one screen, one job (PROJECT-SPEC digital clipboard).
   return (
-    <WorkoutScreen
-      template={workoutTemplate}
-      session={flow.session}
-      exercises={flow.exercises}
-      syncState={props.syncState}
-      error={flow.error}
-      restSeconds={props.profile?.defaultRestSeconds}
-      increments={props.profile?.machineIncrements}
-      onPatchExercise={(key, patch) => void flow.patchExercise(key, patch)}
-      onPatchSession={(patch) => void flow.patchSession(patch)}
-      onLogSet={(key, set) => void flow.logSet(key, set)}
-      onFinish={() => void flow.complete()}
-      recommendations={flow.recommendations}
-      onDecide={(key, decision) => void flow.decide(key, decision)}
-    />
+    <>
+      <WorkoutScreen
+        template={workoutTemplate}
+        session={flow.session}
+        exercises={flow.exercises}
+        syncState={props.syncState}
+        error={flow.error}
+        restSeconds={props.profile?.defaultRestSeconds}
+        increments={props.profile?.machineIncrements}
+        onPatchExercise={(key, patch) => void flow.patchExercise(key, patch)}
+        onPatchSession={(patch) => void flow.patchSession(patch)}
+        onLogSet={(key, set) => void flow.logSet(key, set)}
+        onFinish={() => void flow.complete()}
+        recommendations={flow.recommendations}
+        onDecide={(key, decision) => void flow.decide(key, decision)}
+      />
+      <BottomNav view={props.view} onNavigate={props.onNavigate} />
+    </>
   );
 }
