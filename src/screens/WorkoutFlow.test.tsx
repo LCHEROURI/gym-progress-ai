@@ -25,6 +25,12 @@ const mocks = vi.hoisted(() => ({
       }),
     ),
   })),
+  createExercise: vi.fn(
+    async (
+      _c: unknown,
+      i: { exercise: Record<string, unknown> },
+    ) => i.exercise,
+  ),
   saveExercise: vi.fn(
     async (
       _c: unknown,

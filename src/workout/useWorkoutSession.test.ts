@@ -19,6 +19,9 @@ const mocks = vi.hoisted(() => ({
       }),
     ),
   })),
+  createExercise: vi.fn(
+    async (_c: unknown, input: { exercise: Record<string, unknown> }) => input.exercise,
+  ),
   saveExercise: vi.fn(
     async (_c: unknown, input: { current: Record<string, unknown>; patch: Record<string, unknown> }) => ({
       ...input.current,
@@ -278,5 +281,48 @@ describe("useWorkoutSession + coach wiring", () => {
     )!;
     // No pick, no history — never fabricate a weight.
     expect(chestPress.weightUsed).toBeNull();
+  });
+
+  it("reconciles active in-progress workout with profile extra exercises when restored", async () => {
+    const session = {
+      ...buildSession({ sessionId: "s1", uid: "u1", template: MONDAY, scheduledDate: "2026-09-25", now: t0 }),
+      status: "in_progress" as const,
+    };
+    const initialExercises = MONDAY.exercises.map((t) =>
+      buildExerciseSession({ template: MONDAY, order: t.order, previousWeight: null, weightUnit: "lb", now: t0 }),
+    );
+    mocks.fetchActiveWorkout.mockResolvedValueOnce({
+      session,
+      exercises: initialExercises,
+      sets: [],
+    } as never);
+
+    const extraExercise = {
+      key: "custom-triceps-pushdown",
+      name: "Triceps Pushdown",
+      targetSets: 2,
+      targetRepsMin: 10,
+      targetRepsMax: 10,
+      tip: "",
+    };
+
+    const { result } = renderHook(() =>
+      useWorkoutSession({
+        db,
+        uid: "u1",
+        template: MONDAY,
+        scheduledDate: "2026-09-28",
+        profile: { extraExercises: [extraExercise] },
+      }),
+    );
+
+    await waitForActivePhase(result);
+
+    await waitFor(() => {
+      expect(
+        result.current.exercises.some((e) => e.exerciseKey === "custom-triceps-pushdown"),
+      ).toBe(true);
+    });
+    expect(mocks.createExercise).toHaveBeenCalled();
   });
 });

@@ -5,6 +5,7 @@ import type { WorkoutTemplate } from "../domain/templates";
 import { buildEffectiveTemplate } from "../domain/effectiveTemplate";
 import type { Profile } from "../data/settings";
 import {
+  createExercise,
   fetchActiveWorkout,
   fetchPreviousWeights,
   logSet as persistSet,
@@ -21,6 +22,8 @@ import {
   recordDecision,
   saveRecommendation,
 } from "../coach/recommendations";
+import { buildExerciseSession } from "../domain/session";
+import { templateForId } from "../domain/recovery";
 import type { LoggedSet } from "./summary";
 
 export interface CoachSuggestion {
@@ -89,8 +92,35 @@ export function useWorkoutSession(input: {
       const active = await fetchActiveWorkout({ db }, uid);
       if (active) {
         setSession(active.session);
-        setExercises(active.exercises);
         setSets(active.sets);
+
+        if (input.profile?.extraExercises?.length) {
+          const baseTemplate = templateForId(active.session.templateId) ?? input.template;
+          const effectiveTemplate = buildEffectiveTemplate(baseTemplate, input.profile);
+          const existingKeys = new Set(active.exercises.map((e) => e.exerciseKey));
+          const missing = effectiveTemplate.exercises.filter((t) => !existingKeys.has(t.key));
+          if (missing.length > 0) {
+            const addedExercises = missing.map((t) =>
+              buildExerciseSession({
+                template: effectiveTemplate,
+                order: t.order,
+                previousWeight: null,
+                weightUnit: t.kind === "resistance" ? (input.weightUnit ?? "lb") : null,
+                now: new Date(),
+              }),
+            );
+            setExercises([...active.exercises, ...addedExercises]);
+            for (const ex of addedExercises) {
+              createExercise({ db }, { uid, sessionId: active.session.id, exercise: ex }).catch(
+                () => undefined,
+              );
+            }
+          } else {
+            setExercises(active.exercises);
+          }
+        } else {
+          setExercises(active.exercises);
+        }
       }
     } catch {
       const message = "Could not check for an unfinished workout. Retry before starting another workout.";
@@ -100,11 +130,52 @@ export function useWorkoutSession(input: {
       restoringRef.current = false;
       setRestoring(false);
     }
-  }, [db, uid]);
+  }, [db, uid, input.profile, input.template, input.weightUnit]);
 
   useEffect(() => {
     void restore();
   }, [restore]);
+
+  // Reconcile active session with newly added extra exercises (e.g. added via Coach/Settings mid-session or after initial load)
+  useEffect(() => {
+    if (!session || session.status !== "in_progress" || !input.profile?.extraExercises?.length) {
+      return;
+    }
+    const baseTemplate = templateForId(session.templateId) ?? input.template;
+    const effectiveTemplate = buildEffectiveTemplate(baseTemplate, input.profile);
+    const existingKeys = new Set(exercises.map((e) => e.exerciseKey));
+    const missing = effectiveTemplate.exercises.filter((t) => !existingKeys.has(t.key));
+    if (missing.length === 0) return;
+
+    let cancelled = false;
+    const newExercises = missing.map((t) =>
+      buildExerciseSession({
+        template: effectiveTemplate,
+        order: t.order,
+        previousWeight: null,
+        weightUnit: t.kind === "resistance" ? (input.weightUnit ?? "lb") : null,
+        now: new Date(),
+      }),
+    );
+
+    Promise.all(
+      newExercises.map((ex) =>
+        createExercise({ db }, { uid, sessionId: session.id, exercise: ex }).catch(() => undefined),
+      ),
+    ).then(() => {
+      if (!cancelled) {
+        setExercises((cur) => {
+          const curKeys = new Set(cur.map((e) => e.exerciseKey));
+          const toAdd = newExercises.filter((e) => !curKeys.has(e.exerciseKey));
+          return toAdd.length > 0 ? [...cur, ...toAdd] : cur;
+        });
+      }
+    });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [session, exercises, input.profile, input.template, input.weightUnit, db, uid]);
 
   const start = useCallback(async (initialWeights?: Record<string, number>) => {
     if (starting.current || restoringRef.current || restoreErrorRef.current) return;
@@ -130,6 +201,7 @@ export function useWorkoutSession(input: {
         previousWeights,
         initialWeights,
         weightUnit: input.weightUnit ?? "lb",
+        profile: input.profile,
       });
       // The workout is live as soon as its atomic Firestore batch succeeds;
       // optional recommendation writes must never strand the user on the plan.

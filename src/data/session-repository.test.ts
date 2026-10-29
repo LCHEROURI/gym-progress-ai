@@ -26,6 +26,7 @@ vi.mock("firebase/firestore", () => ({
 import { MONDAY } from "../domain/templates";
 import { buildExerciseSession, buildSession } from "../domain/session";
 import {
+  createExercise,
   fetchActiveWorkout,
   fetchPreviousWeights,
   logSet,
@@ -191,6 +192,26 @@ describe("saveSession (state machine)", () => {
       }),
     ).rejects.toThrow("Invalid status transition");
     expect(mocks.updateDoc).not.toHaveBeenCalled();
+  });
+});
+
+describe("createExercise", () => {
+  it("persists a newly created exercise to Firestore via setDoc", async () => {
+    const ex = buildExerciseSession({
+      template: MONDAY,
+      order: 1,
+      previousWeight: null,
+      weightUnit: "lb",
+      now,
+    });
+    const result = await createExercise(ctx, {
+      uid: "u1",
+      sessionId: "s1",
+      exercise: ex,
+      now,
+    });
+    expect(result.exerciseKey).toBe("bike-warmup");
+    expect(mocks.setDoc).toHaveBeenCalledOnce();
   });
 });
 

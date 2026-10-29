@@ -33,18 +33,19 @@ const SYNC_LABEL: Record<SyncState, string> = {
 
 export default function WorkoutScreen(props: Props) {
   const [resting, setResting] = useState<string | null>(null);
-  const done = props.exercises.filter((e) => e.completed).length;
+  const sortedExercises = [...props.exercises].sort((a, b) => a.exerciseOrder - b.exerciseOrder);
+  const done = sortedExercises.filter((e) => e.completed).length;
 
   return (
     <section aria-label="Active workout">
       <header className="workoutHeader">
         <h2 className="workoutName">{props.template.name.toUpperCase()}</h2>
         <p className="progressLine">
-          {done} of {props.exercises.length} complete
+          {done} of {sortedExercises.length} complete
         </p>
         <progress
           className="workoutProgress"
-          max={props.exercises.length}
+          max={sortedExercises.length}
           value={done}
           aria-label="Workout completion"
         />
@@ -57,7 +58,7 @@ export default function WorkoutScreen(props: Props) {
         <RestTimer defaultSeconds={props.restSeconds} onSkip={() => setResting(null)} />
       )}
       <ul className="cardList">
-        {props.exercises.map((e) => {
+        {sortedExercises.map((e) => {
           const templateExercise = props.template.exercises.find((t) => t.key === e.exerciseKey);
           if (!templateExercise) return null;
           return (

@@ -197,6 +197,26 @@ export async function fetchActiveWorkout(
   return { session, exercises, sets: setGroups.flat() };
 }
 
+export async function createExercise(
+  ctx: RepoCtx,
+  input: {
+    uid: string;
+    sessionId: string;
+    exercise: ExerciseSession;
+    now?: Date;
+  },
+): Promise<ExerciseSession> {
+  const validated = exerciseSessionSchema.parse({
+    ...input.exercise,
+    updatedAt: input.now ?? input.exercise.updatedAt ?? new Date(),
+  });
+  await setDoc(
+    doc(ctx.db, exercisePath(input.uid, input.sessionId, validated.exerciseKey)),
+    validated as unknown as Record<string, unknown>,
+  );
+  return validated;
+}
+
 /**
  * Immediate autosave for one exercise card. The full merged document is
  * Zod-validated before any write leaves the device.
