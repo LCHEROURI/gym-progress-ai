@@ -248,8 +248,8 @@ dd {
   display: flex;
   margin: 20px -18px -24px;
   padding: 6px 6px max(8px, env(safe-area-inset-bottom));
-  background: rgb(255 255 255 / 96%);
-  border: 1px solid var(--line);
+  background: var(--green);
+  border: 1px solid rgb(0 0 0 / 15%);
   border-radius: 18px 18px 0 0;
   box-shadow: 0 -4px 18px rgb(24 45 32 / 7%);
   backdrop-filter: blur(12px);
@@ -269,6 +269,7 @@ dd {
   font-size: clamp(9px, 2.7vw, 12px);
   letter-spacing: -0.035em;
   font-weight: 700;
+  color: #ffffff;
   background: none;
   border: none;
   white-space: nowrap;
@@ -290,8 +291,8 @@ dd {
 }
 
 .bottomNav button[aria-current="page"] {
-  color: var(--green);
-  background: var(--green-soft);
+  color: #ffffff;
+  background: rgb(0 0 0 / 22%);
   border-radius: 12px;
 }
 
