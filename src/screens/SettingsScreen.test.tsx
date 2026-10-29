@@ -63,7 +63,7 @@ describe("SettingsScreen", () => {
     ]);
   });
 
-  it("adds custom exercises via the add form and removes them", () => {
+  it("shows existing extra exercises and removes them, and no longer renders the manual add form", () => {
     const onSave = vi.fn();
     const profileWithOne = {
       ...defaultProfile(),
@@ -87,37 +87,11 @@ describe("SettingsScreen", () => {
     expect(onSave).toHaveBeenCalledOnce();
     expect(onSave.mock.calls[0][0].extraExercises).toEqual([]);
 
-    // Add new exercise via form
-    fireEvent.change(screen.getByLabelText("New exercise name"), {
-      target: { value: "Lateral Raise" },
-    });
-    fireEvent.change(screen.getByLabelText("New exercise sets"), {
-      target: { value: "3" },
-    });
-    fireEvent.change(screen.getByLabelText("New exercise reps"), {
-      target: { value: "12" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: "ADD EXERCISE" }));
-
-    expect(onSave).toHaveBeenCalledTimes(2);
-    expect(onSave.mock.calls[1][0].extraExercises).toEqual([
-      {
-        key: "custom-biceps-curl",
-        name: "Biceps Curl",
-        targetSets: 2,
-        targetRepsMin: 10,
-        targetRepsMax: 10,
-        tip: "",
-      },
-      {
-        key: "custom-lateral-raise",
-        name: "Lateral Raise",
-        targetSets: 3,
-        targetRepsMin: 12,
-        targetRepsMax: 12,
-        tip: "",
-      },
-    ]);
+    // Manual add-exercise form is removed (AI coach handles adding exercises)
+    expect(screen.queryByLabelText("New exercise name")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New exercise sets")).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("New exercise reps")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "ADD EXERCISE" })).not.toBeInTheDocument();
   });
 
   it("surfaces a plain-language error message when profile save fails", async () => {
