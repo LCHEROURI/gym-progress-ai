@@ -84,4 +84,42 @@ describe("CoachScreen", () => {
       screen.getByRole("button", { name: "What should I keep steady?" }),
     ).toBeEnabled();
   });
+
+  it("interactively confirms and saves an extra exercise requested in chat", async () => {
+    const onSaveProfile = vi.fn(async () => undefined);
+    render(
+      <CoachScreen
+        db={{} as never}
+        uid="u1"
+        app={{} as never}
+        profile={{ extraExercises: [] }}
+        onSaveProfile={onSaveProfile}
+      />,
+    );
+    await screen.findByText("Workout history ready.");
+
+    const input = screen.getByRole("textbox", { name: "Ask the coach" });
+    const sendButton = screen.getByRole("button", { name: "SEND" });
+
+    // Step 1: User asks to add biceps curls
+    fireEvent.change(input, { target: { value: "add biceps curls" } });
+    fireEvent.click(sendButton);
+
+    expect(
+      await screen.findByText(
+        "I can add Biceps Curl (2 sets × 10 reps) to every workout. Would you like me to add it?",
+      ),
+    ).toBeInTheDocument();
+
+    // Step 2: User confirms with "yes"
+    fireEvent.change(input, { target: { value: "yes" } });
+    fireEvent.click(sendButton);
+
+    expect(
+      await screen.findByText(
+        "Added Biceps Curl (2 sets × 10 reps) to your extra exercises. It will appear at the end of every workout.",
+      ),
+    ).toBeInTheDocument();
+    expect(onSaveProfile).toHaveBeenCalledOnce();
+  });
 });

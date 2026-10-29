@@ -107,11 +107,9 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
     };
   }, [db, uid]);
 
-  const save = (p: Profile) => {
+  const save = async (p: Profile): Promise<void> => {
     setProfile(p);
-    void saveProfile({ db }, uid, p).catch(() => {
-      void 0;
-    });
+    await saveProfile({ db }, uid, p);
   };
 
   const navigate = (v: NavView) => {
@@ -162,7 +160,13 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
   if (view === "coach") {
     return (
       <div className={cls}>
-        <CoachScreen db={db} uid={uid} app={app} profile={profile} />
+        <CoachScreen
+          db={db}
+          uid={uid}
+          app={app}
+          profile={profile}
+          onSaveProfile={save}
+        />
         {nav}
       </div>
     );

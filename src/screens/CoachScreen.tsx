@@ -9,14 +9,23 @@ export default function CoachScreen({
   app,
   profile,
   extraExercises,
+  onSaveProfile,
 }: {
   db: Firestore;
   uid: string;
   app: FirebaseApp;
-  profile?: Pick<Profile, "extraExercises"> | null;
+  profile?: Profile | Pick<Profile, "extraExercises"> | null;
   extraExercises?: ExtraExercise[];
+  onSaveProfile?: (profile: Profile) => Promise<void> | void;
 }) {
-  const turn = useCoachTurn({ db, uid, app, profile, extraExercises });
+  const turn = useCoachTurn({
+    db,
+    uid,
+    app,
+    profile,
+    extraExercises,
+    onSaveProfile,
+  });
 
   return (
     <section aria-label="AI coach">
