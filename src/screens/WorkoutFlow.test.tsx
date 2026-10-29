@@ -108,6 +108,19 @@ describe("WorkoutFlow ?screen= deep links (dev)", () => {
     );
     expect(window.location.search).toBe("?screen=bogus");
   });
+
+  it("surfaces a plain-language error when saving profile fails", async () => {
+    window.history.replaceState(null, "", "/?screen=settings");
+    mocks.saveProfile.mockRejectedValueOnce(new Error("offline"));
+    render(<WorkoutFlow uid="u1" />);
+    await screen.findByRole("heading", { name: "SETTINGS" });
+
+    fireEvent.click(screen.getByRole("button", { name: "KG" }));
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("Couldn't save — check your connection and try again.");
+  });
 });
 
 // One past leg-press session (70 LB × 10 × 10, felt good) so the plan preview

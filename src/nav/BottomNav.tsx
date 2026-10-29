@@ -14,6 +14,7 @@ const TABS: [NavView, string][] = [
   ["progress", "PROGRESS"],
   ["coach", "AI COACH"],
   ["reports", "REPORTS"],
+  ["settings", "SETTINGS"],
 ];
 
 /* Stroke icon set (24px, currentColor — the active tab recolors them via the
@@ -131,15 +132,6 @@ export default function BottomNav({
           {label}
         </button>
       ))}
-      <button
-        type="button"
-        className="gearButton"
-        aria-label="Settings"
-        aria-current={view === "settings" ? "page" : undefined}
-        onClick={() => onNavigate("settings")}
-      >
-        {ICONS.settings}
-      </button>
     </nav>
   );
 }

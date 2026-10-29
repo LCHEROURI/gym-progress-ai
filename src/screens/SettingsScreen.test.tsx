@@ -119,4 +119,28 @@ describe("SettingsScreen", () => {
       },
     ]);
   });
+
+  it("surfaces a plain-language error message when profile save fails", async () => {
+    const onSave = vi.fn().mockRejectedValue(new Error("network failure"));
+    render(<SettingsScreen profile={defaultProfile()} onSave={onSave} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Biceps Curl (2 × 10)" }));
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("Couldn't save — check your connection and try again.");
+  });
+
+  it("surfaces a saveError prop passed to SettingsScreen", () => {
+    render(
+      <SettingsScreen
+        profile={defaultProfile()}
+        onSave={() => undefined}
+        saveError="Couldn't save — check your connection and try again."
+      />,
+    );
+    expect(screen.getByRole("alert")).toHaveTextContent(
+      "Couldn't save — check your connection and try again.",
+    );
+  });
 });

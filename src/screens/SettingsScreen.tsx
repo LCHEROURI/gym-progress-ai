@@ -8,12 +8,22 @@ import InstallSection from "../install/InstallSection";
 
 interface Props {
   profile: Profile;
-  onSave: (profile: Profile) => void;
+  onSave: (profile: Profile) => Promise<void> | void;
+  saveError?: string | null;
 }
 
-export default function SettingsScreen({ profile, onSave }: Props) {
-  const update = (patch: Partial<Profile>) =>
-    onSave({ ...profile, ...patch, updatedAt: new Date() });
+export default function SettingsScreen({ profile, onSave, saveError }: Props) {
+  const [localError, setLocalError] = useState<string | null>(null);
+  const error = saveError ?? localError;
+
+  const update = async (patch: Partial<Profile>) => {
+    setLocalError(null);
+    try {
+      await onSave({ ...profile, ...patch, updatedAt: new Date() });
+    } catch {
+      setLocalError("Couldn't save — check your connection and try again.");
+    }
+  };
 
   const setReminder = (day: "mon" | "wed" | "fri", value: string) =>
     update({ reminderTimes: { ...profile.reminderTimes, [day]: value } });
@@ -63,6 +73,7 @@ export default function SettingsScreen({ profile, onSave }: Props) {
   return (
     <section aria-label="Settings">
       <h2 className="workoutName">SETTINGS</h2>
+      {error && <p role="alert">{error}</p>}
 
       <h3 className="sectionTitle">WEIGHT UNIT</h3>
       <div className="feelRow" role="group" aria-label="Weight unit">

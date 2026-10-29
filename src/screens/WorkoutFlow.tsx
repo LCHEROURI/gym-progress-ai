@@ -107,9 +107,17 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
     };
   }, [db, uid]);
 
+  const [saveError, setSaveError] = useState<string | null>(null);
+
   const save = async (p: Profile): Promise<void> => {
     setProfile(p);
-    await saveProfile({ db }, uid, p);
+    setSaveError(null);
+    try {
+      await saveProfile({ db }, uid, p);
+    } catch (err) {
+      setSaveError("Couldn't save — check your connection and try again.");
+      throw err;
+    }
   };
 
   const navigate = (v: NavView) => {
@@ -132,7 +140,11 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
     return (
       <div className={cls}>
         {profile ? (
-          <SettingsScreen profile={profile} onSave={save} />
+          <SettingsScreen
+            profile={profile}
+            onSave={save}
+            saveError={saveError}
+          />
         ) : (
           <p>Loading…</p>
         )}
