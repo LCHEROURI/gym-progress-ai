@@ -110,6 +110,22 @@ describe("custom exercise key helpers", () => {
 });
 
 describe("fetch/save", () => {
+  const timestamp = (d: Date) => ({ toDate: () => d, seconds: d.getTime() / 1000 });
+
+  it("converts createdAt and updatedAt Timestamps instead of throwing", async () => {
+    const raw = defaultProfile();
+    mocks.getDoc.mockResolvedValueOnce({
+      data: () => ({
+        ...raw,
+        createdAt: timestamp(raw.createdAt),
+        updatedAt: timestamp(raw.updatedAt),
+      }),
+    } as never);
+    const p = await fetchProfile({ db: {} as never }, "u1");
+    expect(p.createdAt).toBeInstanceOf(Date);
+    expect(p.updatedAt).toBeInstanceOf(Date);
+  });
+
   it("returns defaults when no profile exists yet", async () => {
     const p = await fetchProfile({ db: {} as never }, "u1");
     expect(p.weightUnit).toBe("lb");

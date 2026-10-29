@@ -60,6 +60,8 @@ export const EXERCISE_DATE_FIELDS = ["createdAt", "updatedAt"];
 export const SET_DATE_FIELDS = ["createdAt"];
 /** weeklyReportSchema stores createdAt as a z.date(); reports.ts reads it back. */
 export const REPORT_DATE_FIELDS = ["createdAt"];
+/** profileSchema stores createdAt/updatedAt as z.date(); settings.ts reads them back. */
+export const PROFILE_DATE_FIELDS = ["createdAt", "updatedAt"];
 
 export function withDateFields(data: unknown, fields: string[]): unknown {
   if (!data || typeof data !== "object") return data;

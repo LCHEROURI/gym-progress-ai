@@ -68,7 +68,13 @@ describe("every loader converts Firestore Timestamps before validating", () => {
   // fixture was built with buildSession(), which already emits plain Dates.
   // A new loader that parses a snapshot without withDateFields() fails here
   // rather than in front of a user.
-  const loaders = ["history.ts", "progress.ts", "reports.ts", "session-repository.ts"];
+  const loaders = [
+    "history.ts",
+    "progress.ts",
+    "reports.ts",
+    "session-repository.ts",
+    "settings.ts",
+  ];
   it("no loader parses a raw snapshot straight into a schema", () => {
     const offenders: string[] = [];
     for (const file of loaders) {

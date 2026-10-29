@@ -1,7 +1,11 @@
 import { doc, getDoc, setDoc } from "firebase/firestore";
 import { z } from "zod";
 import { TEMPLATES } from "../domain/templates";
-import type { RepoCtx } from "./session-repository";
+import {
+  PROFILE_DATE_FIELDS,
+  withDateFields,
+  type RepoCtx,
+} from "./session-repository";
 
 export const extraExerciseSchema = z
   .object({
@@ -89,8 +93,9 @@ const path = (uid: string) => `users/${uid}/settings/profile`;
 
 export async function fetchProfile(ctx: RepoCtx, uid: string): Promise<Profile> {
   const snap = await getDoc(doc(ctx.db, path(uid)));
-  const data = snap.data();
-  return data ? profileSchema.parse(data) : defaultProfile();
+  return snap.data()
+    ? profileSchema.parse(withDateFields(snap.data(), PROFILE_DATE_FIELDS))
+    : defaultProfile();
 }
 
 export async function saveProfile(
