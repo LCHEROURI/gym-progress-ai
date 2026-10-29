@@ -28,7 +28,7 @@ export async function enablePushReminders(input: {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return "denied";
 
-  const vapidKey = import.meta.env.VITE_FCM_VAPID_KEY as string | undefined;
+  const vapidKey = (import.meta.env.VITE_FCM_VAPID_KEY as string | undefined)?.trim();
   if (!vapidKey) {
     throw new Error(
       "Push key missing — set VITE_FCM_VAPID_KEY (Firebase console → Cloud Messaging → Web Push certificates) and rebuild.",

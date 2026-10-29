@@ -65,6 +65,26 @@ describe("enablePushReminders", () => {
     expect(mocks.saveFcmToken).not.toHaveBeenCalled();
   });
 
+  it("trims leading and trailing whitespace and CRLF from VAPID key before calling getToken", async () => {
+    stubBrowser("granted");
+    vi.stubEnv("VITE_FCM_VAPID_KEY", " \r\n test-vapid-key \r\n ");
+    expect(await enablePushReminders({ app, db, uid: "u1" })).toBe("on");
+    expect(mocks.getToken).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({ vapidKey: "test-vapid-key" }),
+    );
+  });
+
+  it("treats an all-whitespace VAPID key as missing", async () => {
+    stubBrowser("granted");
+    vi.stubEnv("VITE_FCM_VAPID_KEY", "  \r\n \t ");
+    await expect(enablePushReminders({ app, db, uid: "u1" })).rejects.toThrow(
+      /VITE_FCM_VAPID_KEY/,
+    );
+    expect(mocks.getToken).not.toHaveBeenCalled();
+    expect(mocks.saveFcmToken).not.toHaveBeenCalled();
+  });
+
   it("detects unsupported browsers", async () => {
     vi.stubGlobal("Notification", undefined);
     expect(pushSupported()).toBe(false);
