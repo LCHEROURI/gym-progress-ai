@@ -121,6 +121,27 @@ describe("WorkoutFlow ?screen= deep links (dev)", () => {
       await screen.findByRole("alert"),
     ).toHaveTextContent("Couldn't save — check your connection and try again.");
   });
+
+  it("surfaces a plain-language error with retry button when profile fetch fails, and retry re-attempts fetch", async () => {
+    window.history.replaceState(null, "", "/?screen=settings");
+    mocks.fetchProfile.mockRejectedValueOnce(new Error("offline"));
+    render(<WorkoutFlow uid="u1" />);
+
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("Couldn't load your settings — check your connection and try again.");
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+    expect(retryBtn).toBeInTheDocument();
+    expect(mocks.fetchProfile).toHaveBeenCalledTimes(1);
+
+    // Mock success for the retry
+    mocks.fetchProfile.mockResolvedValueOnce(defaultProfile() as never);
+    fireEvent.click(retryBtn);
+
+    expect(mocks.fetchProfile).toHaveBeenCalledTimes(2);
+    expect(await screen.findByRole("heading", { name: "SETTINGS" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
 });
 
 // One past leg-press session (70 LB × 10 × 10, felt good) so the plan preview

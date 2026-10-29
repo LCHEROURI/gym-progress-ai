@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import type { Firestore } from "firebase/firestore";
 import { initFirebase, type FirebaseServices } from "../data/firebase";
 import { fetchProfile, saveProfile, type Profile } from "../data/settings";
@@ -79,14 +79,34 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
   const template = view === "today" ? recoveredTemplate ?? plannedTemplate : plannedTemplate;
   const syncState = useSyncStatus(db, null);
 
+  const [profileError, setProfileError] = useState<string | null>(null);
+
+  const loadProfile = useCallback(() => {
+    setProfileError(null);
+    return fetchProfile({ db }, uid)
+      .then((p) => {
+        setProfile(p);
+      })
+      .catch(() => {
+        setProfileError(
+          "Couldn't load your settings — check your connection and try again.",
+        );
+      });
+  }, [db, uid]);
+
   useEffect(() => {
     let cancelled = false;
+    setProfileError(null);
     fetchProfile({ db }, uid)
       .then((p) => {
         if (!cancelled) setProfile(p);
       })
       .catch(() => {
-        void 0;
+        if (!cancelled) {
+          setProfileError(
+            "Couldn't load your settings — check your connection and try again.",
+          );
+        }
       });
     return () => {
       cancelled = true;
@@ -145,6 +165,13 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
             onSave={save}
             saveError={saveError}
           />
+        ) : profileError ? (
+          <div role="alert">
+            <p>{profileError}</p>
+            <button type="button" onClick={() => void loadProfile()}>
+              Retry
+            </button>
+          </div>
         ) : (
           <p>Loading…</p>
         )}
