@@ -4,6 +4,7 @@ import {
   buildExerciseSession,
   buildSession,
   canTransition,
+  exerciseStatSchema,
   progressionBlocked,
   workoutSessionSchema,
 } from "./session";
@@ -82,5 +83,31 @@ describe("progressionBlocked (safety gate)", () => {
   it("allows clean sessions and mild discomfort", () => {
     expect(progressionBlocked({ painReported: false, dizzinessReported: false, shortnessOfBreathReported: false, painStatus: "none" })).toBe(false);
     expect(progressionBlocked({ painReported: false, dizzinessReported: false, shortnessOfBreathReported: false, painStatus: "mild" })).toBe(false);
+  });
+});
+
+describe("exerciseStatSchema", () => {
+  const validStat = {
+    lastWeight: 70,
+    lastReps: [10, 10],
+    lastDifficulty: "good" as const,
+    highestWeight: 75,
+    totalSessions: 4,
+    lastWorkoutDate: "2026-09-25",
+    updatedAt: new Date("2026-09-25T10:00:00Z"),
+  };
+
+  it("accepts a valid exercise stat object", () => {
+    expect(() => exerciseStatSchema.parse(validStat)).not.toThrow();
+  });
+
+  it("rejects negative weight and out-of-range values", () => {
+    expect(() => exerciseStatSchema.parse({ ...validStat, lastWeight: -5 })).toThrow();
+    expect(() => exerciseStatSchema.parse({ ...validStat, highestWeight: 2001 })).toThrow();
+  });
+
+  it("rejects invalid date format and extra fields", () => {
+    expect(() => exerciseStatSchema.parse({ ...validStat, lastWorkoutDate: "invalid-date" })).toThrow();
+    expect(() => exerciseStatSchema.parse({ ...validStat, extra: 1 } as never)).toThrow();
   });
 });

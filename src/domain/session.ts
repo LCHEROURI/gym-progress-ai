@@ -72,6 +72,20 @@ export const setSchema = z
 
 export type WorkoutSet = z.infer<typeof setSchema>;
 
+export const exerciseStatSchema = z
+  .object({
+    lastWeight: z.number().min(0).max(2000),
+    lastReps: z.array(z.number().int().min(0).max(200)).max(20),
+    lastDifficulty: difficultySchema.nullable(),
+    highestWeight: z.number().min(0).max(2000),
+    totalSessions: z.number().int().min(0).max(100000),
+    lastWorkoutDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+    updatedAt: z.date(),
+  })
+  .strict();
+
+export type ExerciseStat = z.infer<typeof exerciseStatSchema>;
+
 /** Mirrors validSessionTransition() in firestore.rules. */
 export function canTransition(from: SessionStatus, to: SessionStatus): boolean {
   return (

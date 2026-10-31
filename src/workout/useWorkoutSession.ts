@@ -17,6 +17,7 @@ import {
   saveExercise,
   saveSession,
   startSession,
+  upsertExerciseStat,
 } from "../data/session-repository";
 import { fetchRecentDetails } from "../data/history";
 import { buildLoads } from "../coach/loads";
@@ -142,20 +143,27 @@ export function useWorkoutSession(input: {
 
       const existingKeys = new Set(active.exercises.map((e) => e.exerciseKey));
       const missingExercises: ExerciseSession[] = [];
+      const missingTemplateExercises = targetTemplate.exercises.filter(
+        (tmplEx) => !existingKeys.has(tmplEx.key),
+      );
 
-      targetTemplate.exercises.forEach((tmplEx) => {
-        if (!existingKeys.has(tmplEx.key)) {
+      if (missingTemplateExercises.length > 0) {
+        const missingKeys = missingTemplateExercises.map((t) => t.key);
+        const previousWeights: Record<string, number | null> = await fetchPreviousWeights(
+          { db },
+          uid,
+          missingKeys,
+        ).catch(() => ({}));
+        missingTemplateExercises.forEach((tmplEx) => {
           const newExercise = buildExerciseSession({
             template: targetTemplate,
             order: tmplEx.order,
-            previousWeight: null,
-            weightUnit: inputRef.current.weightUnit ?? 'lb',
+            previousWeight: previousWeights[tmplEx.key] ?? null,
+            weightUnit: tmplEx.kind === "resistance" ? (inputRef.current.weightUnit ?? 'lb') : null,
           });
           missingExercises.push(newExercise);
-        }
-      });
+        });
 
-      if (missingExercises.length > 0) {
         await Promise.allSettled(
           missingExercises.map((exercise) =>
             createExercise({ db }, { uid, sessionId: active.session.id, exercise })
@@ -201,21 +209,26 @@ export function useWorkoutSession(input: {
         : baseTmpl;
 
       const existingKeys = new Set(exercises.map((e) => e.exerciseKey));
-      const toAdd: ExerciseSession[] = [];
+      const missingTemplateExercises = targetTemplate.exercises.filter(
+        (tmplEx) => !existingKeys.has(tmplEx.key),
+      );
 
-      targetTemplate.exercises.forEach((tmplEx) => {
-        if (!existingKeys.has(tmplEx.key)) {
-          const newEx = buildExerciseSession({
+      if (missingTemplateExercises.length > 0) {
+        const missingKeys = missingTemplateExercises.map((t) => t.key);
+        const previousWeights: Record<string, number | null> = await fetchPreviousWeights(
+          { db },
+          uid,
+          missingKeys,
+        ).catch(() => ({}));
+        const toAdd: ExerciseSession[] = missingTemplateExercises.map((tmplEx) =>
+          buildExerciseSession({
             template: targetTemplate,
             order: tmplEx.order,
-            previousWeight: null,
-            weightUnit: inputRef.current.weightUnit ?? 'lb',
-          });
-          toAdd.push(newEx);
-        }
-      });
+            previousWeight: previousWeights[tmplEx.key] ?? null,
+            weightUnit: tmplEx.kind === "resistance" ? (inputRef.current.weightUnit ?? 'lb') : null,
+          }),
+        );
 
-      if (toAdd.length > 0) {
         await Promise.allSettled(
           toAdd.map((exercise) =>
             createExercise({ db }, { uid, sessionId: currentSession.id, exercise })
@@ -367,8 +380,27 @@ export function useWorkoutSession(input: {
   );
 
   const complete = useCallback(async () => {
-    await patchSession({ status: "completed", completedAt: new Date() });
-  }, [patchSession]);
+    const now = new Date();
+    await patchSession({ status: "completed", completedAt: now });
+    if (!session || !db || !uid) return;
+    await Promise.allSettled(
+      exercises
+        .filter((e) => typeof e.weightUsed === "number" && e.weightUsed >= 0)
+        .map((e) =>
+          upsertExerciseStat(
+            { db },
+            {
+              uid,
+              exerciseKey: e.exerciseKey,
+              lastWeight: e.weightUsed as number,
+              difficulty: e.difficulty,
+              lastWorkoutDate: session.scheduledDate,
+              now,
+            },
+          ),
+        ),
+    );
+  }, [patchSession, session, db, uid, exercises]);
 
   const decide = useCallback(
     async (

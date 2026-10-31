@@ -33,6 +33,7 @@ import {
   saveExercise,
   saveSession,
   startSession,
+  upsertExerciseStat,
 } from "./session-repository";
 
 const ctx = { db: {} as never };
@@ -216,19 +217,71 @@ describe("createExercise", () => {
 });
 
 describe("logSet + fetchPreviousWeights", () => {
-  it("stores each set under its numbered id", async () => {
+  it("stores each set under its numbered id and updates exerciseStats cache", async () => {
     await logSet(ctx, {
       uid: "u1",
       sessionId: "s1",
       exerciseKey: "leg-press",
       set: { setNumber: 1, weight: 75, reps: 10, completed: true, createdAt: now },
     });
-    const [ref] = mocks.setDoc.mock.calls[0] as unknown as [string];
-    expect(ref).toContain("/sets/s1");
+    const [setRef] = mocks.setDoc.mock.calls[0] as unknown as [string];
+    expect(setRef).toContain("/sets/s1");
+
+    // Second write is to exerciseStats
+    const [statsRef, statsPayload] = mocks.setDoc.mock.calls[1] as unknown as [
+      string,
+      Record<string, unknown>,
+    ];
+    expect(statsRef).toBe("users/u1/exerciseStats/leg-press");
+    expect(statsPayload.lastWeight).toBe(75);
+    expect(statsPayload.updatedAt).toEqual(now);
+  });
+
+  it("does not throw or abort set logging if exerciseStats cache write fails", async () => {
+    // Fail setDoc on exerciseStats
+    mocks.setDoc.mockResolvedValueOnce(undefined);
+    mocks.setDoc.mockRejectedValueOnce(new Error("Stats write failed"));
+
+    await expect(
+      logSet(ctx, {
+        uid: "u1",
+        sessionId: "s1",
+        exerciseKey: "leg-press",
+        set: { setNumber: 1, weight: 80, reps: 10, completed: true, createdAt: now },
+      }),
+    ).resolves.not.toThrow();
   });
 
   it("maps missing stats to null and present stats to lastWeight", async () => {
     const out = await fetchPreviousWeights(ctx, "u1", ["leg-press", "chest-press"]);
     expect(out["leg-press"]).toBe(70);
+  });
+});
+
+describe("upsertExerciseStat", () => {
+  it("creates a new exerciseStat doc with valid schema defaults", async () => {
+    mocks.getDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined } as never);
+    const result = await upsertExerciseStat(ctx, {
+      uid: "u1",
+      exerciseKey: "leg-press",
+      lastWeight: 85,
+      reps: 12,
+      difficulty: "good",
+      now,
+    });
+
+    expect(result).toMatchObject({
+      lastWeight: 85,
+      lastReps: [12],
+      lastDifficulty: "good",
+      highestWeight: 85,
+      totalSessions: 1,
+      lastWorkoutDate: "2026-09-28",
+      updatedAt: now,
+    });
+    expect(mocks.setDoc).toHaveBeenCalledWith(
+      "users/u1/exerciseStats/leg-press",
+      expect.objectContaining({ lastWeight: 85 }),
+    );
   });
 });

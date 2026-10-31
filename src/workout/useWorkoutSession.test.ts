@@ -6,7 +6,7 @@ import { MONDAY } from "../domain/templates";
 
 const mocks = vi.hoisted(() => ({
   fetchActiveWorkout: vi.fn(async () => null),
-  fetchPreviousWeights: vi.fn(async () => ({ "leg-press": 70 })),
+  fetchPreviousWeights: vi.fn(async () => ({ "leg-press": 70 } as Record<string, number | null>)),
   startSession: vi.fn(async (_ctx: unknown, input: { template: typeof MONDAY; previousWeights: Record<string, number | null>; initialWeights?: Record<string, number>; weightUnit?: "lb" | "kg" }) => ({
     session: { id: "sx", status: "in_progress", startedAt: new Date() },
     exercises: input.template.exercises.map((exercise) =>
@@ -35,6 +35,7 @@ const mocks = vi.hoisted(() => ({
     }),
   ),
   logSet: vi.fn(async () => {}),
+  upsertExerciseStat: vi.fn(async () => ({})),
   fetchRecentDetails: vi.fn(async () => [] as unknown[]),
   saveRecommendation: vi.fn(async () => {}),
   recordDecision: vi.fn(async () => {}),
@@ -74,6 +75,7 @@ beforeEach(() => {
   mocks.fetchRecentDetails.mockReset().mockResolvedValue([]);
   mocks.startSession.mockClear();
   mocks.saveRecommendation.mockReset().mockResolvedValue(undefined);
+  mocks.upsertExerciseStat.mockReset().mockResolvedValue({} as never);
 });
 
 describe("useWorkoutSession + coach wiring", () => {
@@ -296,6 +298,7 @@ describe("useWorkoutSession + coach wiring", () => {
       exercises: initialExercises,
       sets: [],
     } as never);
+    mocks.fetchPreviousWeights.mockResolvedValueOnce({ "custom-triceps-pushdown": 45 });
 
     const extraExercise = {
       key: "custom-triceps-pushdown",
@@ -319,11 +322,52 @@ describe("useWorkoutSession + coach wiring", () => {
     await waitForActivePhase(result);
 
     await waitFor(() => {
-      expect(
-        result.current.exercises.some((e) => e.exerciseKey === "custom-triceps-pushdown"),
-      ).toBe(true);
+      const ex = result.current.exercises.find((e) => e.exerciseKey === "custom-triceps-pushdown");
+      expect(ex).toBeDefined();
+      expect(ex?.previousWeight).toBe(45);
+      expect(ex?.weightUsed).toBe(45);
     });
     expect(mocks.createExercise).toHaveBeenCalled();
+  });
+
+  it("fresh start prefills weightUsed from lastWeight when no suggestion pick is tapped", async () => {
+    mocks.fetchPreviousWeights.mockResolvedValueOnce({ "leg-press": 70, "chest-press": 50 });
+    const { result } = render();
+    await settleInitialRestore();
+    expect(result.current.phase).toBe("today");
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.phase).toBe("active");
+    const legPress = result.current.exercises.find((e) => e.exerciseKey === "leg-press")!;
+    expect(legPress.previousWeight).toBe(70);
+    expect(legPress.weightUsed).toBe(70);
+    const chestPress = result.current.exercises.find((e) => e.exerciseKey === "chest-press")!;
+    expect(chestPress.previousWeight).toBe(50);
+    expect(chestPress.weightUsed).toBe(50);
+  });
+
+  it("complete writes each completed resistance exercise weight to exerciseStats", async () => {
+    mocks.fetchPreviousWeights.mockResolvedValueOnce({ "leg-press": 70 });
+    const { result } = render();
+    await settleInitialRestore();
+    await act(async () => {
+      await result.current.start();
+    });
+    await act(async () => {
+      await result.current.patchExercise("leg-press", { weightUsed: 75, completed: true });
+    });
+    await act(async () => {
+      await result.current.complete();
+    });
+    expect(mocks.upsertExerciseStat).toHaveBeenCalledWith(
+      expect.anything(),
+      expect.objectContaining({
+        uid: "u1",
+        exerciseKey: "leg-press",
+        lastWeight: 75,
+      }),
+    );
   });
 
   it('bounds render count when parent passes re-created template and profile objects (regression 890bee0)', async () => {

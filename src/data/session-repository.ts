@@ -15,9 +15,12 @@ import {
   buildSession,
   canTransition,
   exerciseSessionSchema,
+  exerciseStatSchema,
+  isoDate,
   setSchema,
   workoutSessionSchema,
   type ExerciseSession,
+  type ExerciseStat,
   type SessionStatus,
   type WorkoutSession,
   type WorkoutSet,
@@ -42,6 +45,8 @@ const exercisePath = (uid: string, sid: string, exerciseKey: string) =>
   `${sessionPath(uid, sid)}/exercises/${exerciseKey}`;
 const setPath = (uid: string, sid: string, exerciseKey: string, setId: string) =>
   `${exercisePath(uid, sid, exerciseKey)}/sets/${setId}`;
+export const exerciseStatPath = (uid: string, key: string) =>
+  `users/${uid}/exerciseStats/${key}`;
 
 /**
  * Firestore returns Timestamp objects; the Zod schemas declare z.date(). Every
@@ -58,6 +63,7 @@ const setPath = (uid: string, sid: string, exerciseKey: string, setId: string) =
 export const SESSION_DATE_FIELDS = ["startedAt", "completedAt", "createdAt", "updatedAt"];
 export const EXERCISE_DATE_FIELDS = ["createdAt", "updatedAt"];
 export const SET_DATE_FIELDS = ["createdAt"];
+export const STAT_DATE_FIELDS = ["updatedAt"];
 /** weeklyReportSchema stores createdAt as a z.date(); reports.ts reads it back. */
 export const REPORT_DATE_FIELDS = ["createdAt"];
 /** profileSchema stores createdAt/updatedAt as z.date(); settings.ts reads them back. */
@@ -276,6 +282,79 @@ export async function saveSession(
   return merged;
 }
 
+/**
+ * Upsert the derived exerciseStats cache.
+ * Follows the repository's zod-validated write patterns.
+ */
+export async function upsertExerciseStat(
+  ctx: RepoCtx,
+  input: {
+    uid: string;
+    exerciseKey: string;
+    lastWeight: number;
+    reps?: number;
+    difficulty?: "easy" | "good" | "hard" | null;
+    highestWeight?: number;
+    totalSessions?: number;
+    lastWorkoutDate?: string;
+    now?: Date;
+  },
+): Promise<ExerciseStat> {
+  const now = input.now ?? new Date();
+  const dateStr = input.lastWorkoutDate ?? isoDate(now);
+  const ref = doc(ctx.db, exerciseStatPath(input.uid, input.exerciseKey));
+
+  let existing: Partial<ExerciseStat> = {};
+  try {
+    const snap = await getDoc(ref);
+    const data =
+      typeof snap.data === "function"
+        ? (snap.data() as Record<string, unknown> | undefined)
+        : undefined;
+    const exists = typeof snap.exists === "function" ? snap.exists() : Boolean(data);
+    if (exists && data) {
+      existing = withDateFields(data, STAT_DATE_FIELDS) as Partial<ExerciseStat>;
+    }
+  } catch {
+    // If reading existing stats fails, proceed with defaults
+  }
+
+  const highestWeight =
+    input.highestWeight !== undefined
+      ? input.highestWeight
+      : Math.max(
+          typeof existing.highestWeight === "number" ? existing.highestWeight : 0,
+          input.lastWeight,
+        );
+  const totalSessions =
+    input.totalSessions !== undefined
+      ? input.totalSessions
+      : (typeof existing.totalSessions === "number" ? existing.totalSessions : 1);
+  const lastReps =
+    input.reps !== undefined
+      ? [input.reps]
+      : Array.isArray(existing.lastReps)
+        ? existing.lastReps
+        : [];
+  const lastDifficulty =
+    input.difficulty !== undefined
+      ? input.difficulty
+      : (existing.lastDifficulty ?? null);
+
+  const payload: ExerciseStat = exerciseStatSchema.parse({
+    lastWeight: input.lastWeight,
+    lastReps,
+    lastDifficulty,
+    highestWeight,
+    totalSessions,
+    lastWorkoutDate: dateStr,
+    updatedAt: now,
+  });
+
+  await setDoc(ref, payload as unknown as Record<string, unknown>);
+  return payload;
+}
+
 /** Autosave one completed set (`sets/s{N}` ids keep rules' setNumber binding tidy). */
 export async function logSet(
   ctx: RepoCtx,
@@ -295,6 +374,18 @@ export async function logSet(
     doc(ctx.db, setPath(input.uid, input.sessionId, input.exerciseKey, `s${validated.setNumber}`)),
     validated as unknown as Record<string, unknown>,
   );
+
+  try {
+    await upsertExerciseStat(ctx, {
+      uid: input.uid,
+      exerciseKey: input.exerciseKey,
+      lastWeight: validated.weight,
+      reps: validated.reps,
+      now: input.now ?? validated.createdAt,
+    });
+  } catch {
+    // Write failure to stats cache must never break set logging
+  }
 }
 
 /** Completion summary inputs, counted deterministically from the session tree. */

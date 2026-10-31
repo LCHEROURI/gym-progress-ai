@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => ({
     ) => ({ ...i.current, ...i.patch }),
   ),
   logSet: vi.fn(async () => {}),
+  upsertExerciseStat: vi.fn(async () => ({})),
   fetchRecentDetails: vi.fn(async () => [] as unknown[]),
   saveRecommendation: vi.fn(async () => {}),
   recordDecision: vi.fn(async () => {}),
