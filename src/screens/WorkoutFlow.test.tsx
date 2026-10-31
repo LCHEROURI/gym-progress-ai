@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import "@testing-library/jest-dom/vitest";
-import { fireEvent, render, screen, within } from "@testing-library/react";
+import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { buildExerciseSession, buildSession } from "../domain/session";
 import { FRIDAY, MONDAY } from "../domain/templates";
@@ -148,6 +148,42 @@ describe("WorkoutFlow ?screen= deep links (dev)", () => {
     expect(mocks.fetchProfile).toHaveBeenCalledTimes(2);
     expect(await screen.findByRole("heading", { name: "SETTINGS" })).toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("surfaces a retry banner when fetchHistory fails, keeps rows null without showing WelcomeCard (regression CODE-02)", async () => {
+    localStorage.clear();
+    mocks.fetchHistory.mockRejectedValueOnce(new Error("network error"));
+    render(<WorkoutFlow uid="u1" />);
+
+    // Must show the error alert banner with a Retry button
+    expect(
+      await screen.findByRole("alert"),
+    ).toHaveTextContent("Couldn't load your workout history — check your connection and try again.");
+    const retryBtn = screen.getByRole("button", { name: "Retry" });
+    expect(retryBtn).toBeInTheDocument();
+    expect(mocks.fetchHistory).toHaveBeenCalledTimes(1);
+
+    // WelcomeCard must NOT be rendered (hasCompleted is undefined because rows is null, not false)
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/i)).not.toBeInTheDocument();
+
+    // Mock success on retry
+    mocks.fetchHistory.mockResolvedValueOnce([
+      {
+        id: "s1",
+        scheduledDate: "2026-09-25",
+        workoutType: "strength_bike",
+        status: "completed",
+        exercisesDone: 7,
+        exercisesTotal: 7,
+      },
+    ] as never);
+    fireEvent.click(retryBtn);
+
+    expect(mocks.fetchHistory).toHaveBeenCalledTimes(2);
+    await waitFor(() => {
+      expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    });
+    expect(screen.queryByText(/WELCOME TO GYM PROGRESS AI/i)).not.toBeInTheDocument();
   });
 });
 

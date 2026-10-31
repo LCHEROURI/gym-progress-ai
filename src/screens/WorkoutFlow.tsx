@@ -113,14 +113,34 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
     };
   }, [db, uid]);
 
+  const [historyError, setHistoryError] = useState<string | null>(null);
+
+  const loadHistory = useCallback(() => {
+    setHistoryError(null);
+    return fetchHistory({ db }, uid, 20)
+      .then((r) => {
+        setRows(r);
+      })
+      .catch(() => {
+        setHistoryError(
+          "Couldn't load your workout history — check your connection and try again.",
+        );
+      });
+  }, [db, uid]);
+
   useEffect(() => {
     let cancelled = false;
+    setHistoryError(null);
     fetchHistory({ db }, uid, 20)
       .then((r) => {
         if (!cancelled) setRows(r);
       })
       .catch(() => {
-        if (!cancelled) setRows([]);
+        if (!cancelled) {
+          setHistoryError(
+            "Couldn't load your workout history — check your connection and try again.",
+          );
+        }
       });
     return () => {
       cancelled = true;
@@ -155,6 +175,14 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
     : undefined;
   const cls = profile && !profile.largeTextEnabled ? "smallText" : "";
   const nav = <BottomNav view={view} onNavigate={navigate} />;
+  const historyBanner = historyError ? (
+    <div role="alert">
+      <p>{historyError}</p>
+      <button type="button" onClick={() => void loadHistory()}>
+        Retry
+      </button>
+    </div>
+  ) : null;
 
   if (view === "settings") {
     return (
@@ -225,6 +253,7 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
       info && profile?.aiRecommendationsEnabled === false ? { ...info, tip: "" } : info;
     return (
       <div className={cls}>
+        {historyBanner}
         <TodayScreen
           today={today}
           recovery={recoveryInfo}
@@ -252,6 +281,7 @@ function LoadedWorkoutFlow({ uid, services }: { uid: string; services: FirebaseS
         onNavigate={navigate}
         hasCompleted={hasCompleted}
         onResetPlan={() => setOffPlan(null)}
+        historyBanner={historyBanner}
       />
     </div>
   );
@@ -270,6 +300,7 @@ function ActiveFlow(props: {
   /** Clears an off-plan pick so the rest day comes back after DONE. */
   onResetPlan?: () => void;
   onRecoveredTemplate: (template: WorkoutTemplate | null) => void;
+  historyBanner?: React.ReactNode;
 }) {
   const flow = useWorkoutSession({
     db: props.db,
@@ -385,6 +416,7 @@ function ActiveFlow(props: {
   if (flow.phase === "today" || !flow.session) {
     return (
       <>
+        {props.historyBanner}
         <TodayScreen
           today={new Date()}
           plan={props.template}
