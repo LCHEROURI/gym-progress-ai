@@ -1,6 +1,11 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { Firestore } from "firebase/firestore";
-import type { ExerciseSession, WorkoutSession, WorkoutSet } from "../domain/session";
+import {
+  buildExerciseSession,
+  type ExerciseSession,
+  type WorkoutSession,
+  type WorkoutSet,
+} from "../domain/session";
 import type { WorkoutTemplate } from "../domain/templates";
 import { buildEffectiveTemplate } from "../domain/effectiveTemplate";
 import type { Profile } from "../data/settings";
@@ -22,7 +27,6 @@ import {
   recordDecision,
   saveRecommendation,
 } from "../coach/recommendations";
-import { buildExerciseSession } from "../domain/session";
 import { templateForId } from "../domain/recovery";
 import type { LoggedSet } from "./summary";
 
@@ -78,104 +82,158 @@ export function useWorkoutSession(input: {
   const [restoring, setRestoring] = useState(true);
   const [restoreError, setRestoreError] = useState<string | null>(null);
   const starting = useRef(false);
-  const db = input.db;
-  const uid = input.uid;
-  const restoringRef = useRef(true);
+  const {
+    db,
+    uid,
+    template,
+    profile,
+    scheduledDate,
+    coachEnabled,
+    weightUnit = 'lb',
+  } = input;
+  void scheduledDate;
+  void coachEnabled;
+  const restoringRef = useRef(false);
   const restoreErrorRef = useRef<string | null>(null);
 
+  // ADD ONLY these two new guards:
+  const restoredSessionIdRef = useRef<string | null>(null);
+  const reconciledSessionKeyRef = useRef<string | null>(null);
+
+  const inputRef = useRef(input);
+  useEffect(() => {
+    inputRef.current = input;
+  }, [input]);
+
+  const templateId = template?.id;
+  const extraExerciseKeys = (profile?.extraExercises ?? []).map((e) => e.key).join(',');
+
   const restore = useCallback(async () => {
+    if (!db || !uid || restoringRef.current) return;
+
     restoringRef.current = true;
-    restoreErrorRef.current = null;
     setRestoring(true);
+    restoreErrorRef.current = null;
     setRestoreError(null);
+
     try {
       const active = await fetchActiveWorkout({ db }, uid);
-      if (active) {
-        setSession(active.session);
-        setSets(active.sets);
 
-        if (input.profile?.extraExercises?.length) {
-          const baseTemplate = templateForId(active.session.templateId) ?? input.template;
-          const effectiveTemplate = buildEffectiveTemplate(baseTemplate, input.profile);
-          const existingKeys = new Set(active.exercises.map((e) => e.exerciseKey));
-          const missing = effectiveTemplate.exercises.filter((t) => !existingKeys.has(t.key));
-          if (missing.length > 0) {
-            const addedExercises = missing.map((t) =>
-              buildExerciseSession({
-                template: effectiveTemplate,
-                order: t.order,
-                previousWeight: null,
-                weightUnit: t.kind === "resistance" ? (input.weightUnit ?? "lb") : null,
-                now: new Date(),
-              }),
-            );
-            setExercises([...active.exercises, ...addedExercises]);
-            for (const ex of addedExercises) {
-              createExercise({ db }, { uid, sessionId: active.session.id, exercise: ex }).catch(
-                () => undefined,
-              );
-            }
-          } else {
-            setExercises(active.exercises);
-          }
-        } else {
-          setExercises(active.exercises);
-        }
+      if (!active) {
+        setSession(null);
+        setExercises([]);
+        setSets([]);
+        restoredSessionIdRef.current = null;
+        return;
       }
+
+      if (restoredSessionIdRef.current === active.session.id) {
+        return;
+      }
+
+      const sessionTemplate =
+        (active.session.templateId ? templateForId(active.session.templateId) : undefined) ??
+        inputRef.current.template;
+
+      const currentProfile = inputRef.current.profile;
+      const targetTemplate = currentProfile
+        ? buildEffectiveTemplate(sessionTemplate, currentProfile)
+        : sessionTemplate;
+
+      const existingKeys = new Set(active.exercises.map((e) => e.exerciseKey));
+      const missingExercises: ExerciseSession[] = [];
+
+      targetTemplate.exercises.forEach((tmplEx) => {
+        if (!existingKeys.has(tmplEx.key)) {
+          const newExercise = buildExerciseSession({
+            template: targetTemplate,
+            order: tmplEx.order,
+            previousWeight: null,
+            weightUnit: inputRef.current.weightUnit ?? 'lb',
+          });
+          missingExercises.push(newExercise);
+        }
+      });
+
+      if (missingExercises.length > 0) {
+        await Promise.allSettled(
+          missingExercises.map((exercise) =>
+            createExercise({ db }, { uid, sessionId: active.session.id, exercise })
+          )
+        );
+      }
+
+      restoredSessionIdRef.current = active.session.id;
+      setSession(active.session);
+      setExercises([...active.exercises, ...missingExercises]);
+      setSets(active.sets);
     } catch {
-      const message = "Could not check for an unfinished workout. Retry before starting another workout.";
-      restoreErrorRef.current = message;
-      setRestoreError(message);
+      const msg = 'Could not check for an unfinished workout. Retry before starting another workout.';
+      restoreErrorRef.current = msg;
+      setRestoreError(msg);
     } finally {
       restoringRef.current = false;
       setRestoring(false);
     }
-  }, [db, uid, input.profile, input.template, input.weightUnit]);
+  }, [db, uid]);
 
   useEffect(() => {
     void restore();
   }, [restore]);
 
-  // Reconcile active session with newly added extra exercises (e.g. added via Coach/Settings mid-session or after initial load)
   useEffect(() => {
-    if (!session || session.status !== "in_progress" || !input.profile?.extraExercises?.length) {
+    const currentSession = session;
+    if (!currentSession?.id || !db || !uid) return;
+
+    const reconcileKey = `${currentSession.id}_${templateId}_${extraExerciseKeys}_${weightUnit}`;
+    if (reconciledSessionKeyRef.current === reconcileKey) {
       return;
     }
-    const baseTemplate = templateForId(session.templateId) ?? input.template;
-    const effectiveTemplate = buildEffectiveTemplate(baseTemplate, input.profile);
-    const existingKeys = new Set(exercises.map((e) => e.exerciseKey));
-    const missing = effectiveTemplate.exercises.filter((t) => !existingKeys.has(t.key));
-    if (missing.length === 0) return;
 
-    let cancelled = false;
-    const newExercises = missing.map((t) =>
-      buildExerciseSession({
-        template: effectiveTemplate,
-        order: t.order,
-        previousWeight: null,
-        weightUnit: t.kind === "resistance" ? (input.weightUnit ?? "lb") : null,
-        now: new Date(),
-      }),
-    );
+    const reconcileExtras = async () => {
+      const currentProfile = inputRef.current.profile;
+      const baseTmpl =
+        (currentSession.templateId ? templateForId(currentSession.templateId) : undefined) ??
+        inputRef.current.template;
 
-    Promise.all(
-      newExercises.map((ex) =>
-        createExercise({ db }, { uid, sessionId: session.id, exercise: ex }).catch(() => undefined),
-      ),
-    ).then(() => {
-      if (!cancelled) {
-        setExercises((cur) => {
-          const curKeys = new Set(cur.map((e) => e.exerciseKey));
-          const toAdd = newExercises.filter((e) => !curKeys.has(e.exerciseKey));
-          return toAdd.length > 0 ? [...cur, ...toAdd] : cur;
+      const targetTemplate = currentProfile
+        ? buildEffectiveTemplate(baseTmpl, currentProfile)
+        : baseTmpl;
+
+      const existingKeys = new Set(exercises.map((e) => e.exerciseKey));
+      const toAdd: ExerciseSession[] = [];
+
+      targetTemplate.exercises.forEach((tmplEx) => {
+        if (!existingKeys.has(tmplEx.key)) {
+          const newEx = buildExerciseSession({
+            template: targetTemplate,
+            order: tmplEx.order,
+            previousWeight: null,
+            weightUnit: inputRef.current.weightUnit ?? 'lb',
+          });
+          toAdd.push(newEx);
+        }
+      });
+
+      if (toAdd.length > 0) {
+        await Promise.allSettled(
+          toAdd.map((exercise) =>
+            createExercise({ db }, { uid, sessionId: currentSession.id, exercise })
+          )
+        );
+
+        setExercises((prev) => {
+          const prevKeys = new Set(prev.map((e) => e.exerciseKey));
+          const trulyNew = toAdd.filter((e) => !prevKeys.has(e.exerciseKey));
+          return [...prev, ...trulyNew];
         });
       }
-    });
 
-    return () => {
-      cancelled = true;
+      reconciledSessionKeyRef.current = reconcileKey;
     };
-  }, [session, exercises, input.profile, input.template, input.weightUnit, db, uid]);
+
+    void reconcileExtras();
+  }, [session?.id, templateId, extraExerciseKeys, weightUnit, db, uid]);
 
   const start = useCallback(async (initialWeights?: Record<string, number>) => {
     if (starting.current || restoringRef.current || restoreErrorRef.current) return;

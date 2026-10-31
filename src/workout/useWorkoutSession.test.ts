@@ -325,4 +325,73 @@ describe("useWorkoutSession + coach wiring", () => {
     });
     expect(mocks.createExercise).toHaveBeenCalled();
   });
+
+  it('bounds render count when parent passes re-created template and profile objects (regression 890bee0)', async () => {
+    let renderCount = 0;
+    const db = {} as never;
+
+    const activeSession = buildSession({
+      sessionId: 'regression-890bee0',
+      uid: 'test-user',
+      template: MONDAY,
+      scheduledDate: '2026-10-30',
+      now: new Date('2026-10-30T10:00:00Z'),
+    });
+
+    const activeExercise = buildExerciseSession({
+      template: MONDAY,
+      order: MONDAY.exercises[0].order,
+      previousWeight: null,
+      weightUnit: 'lb',
+    });
+
+    mocks.fetchActiveWorkout.mockResolvedValue({
+      session: activeSession,
+      exercises: [activeExercise],
+      sets: [],
+    } as never);
+
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    const baseProfile = {
+      id: 'test-user',
+      extraExercises: [],
+    } as any;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+
+    const { result, rerender } = renderHook(
+      ({ tmpl, prof }) => {
+        renderCount++;
+        return useWorkoutSession({
+          db,
+          uid: 'test-user',
+          template: tmpl,
+          scheduledDate: '2026-10-30',
+          weightUnit: 'lb',
+          profile: prof,
+        });
+      },
+      {
+        initialProps: {
+          tmpl: { ...MONDAY, exercises: [...MONDAY.exercises] },
+          prof: { ...baseProfile, extraExercises: [...baseProfile.extraExercises] },
+        },
+      }
+    );
+
+    await waitFor(() => {
+      expect(result.current.phase).toBe('active');
+      expect(result.current.session).not.toBeNull();
+    });
+
+    const baselineRenderCount = renderCount;
+
+    for (let i = 0; i < 5; i++) {
+      rerender({
+        tmpl: { ...MONDAY, exercises: [...MONDAY.exercises] },
+        prof: { ...baseProfile, extraExercises: [...baseProfile.extraExercises] },
+      });
+    }
+
+    expect(renderCount).toBeLessThanOrEqual(baselineRenderCount + 6);
+  });
 });
