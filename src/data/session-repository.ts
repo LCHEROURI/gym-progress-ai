@@ -313,6 +313,7 @@ export async function upsertExerciseStat(
     exerciseKey: string;
     lastWeight: number;
     reps?: number | number[];
+    setNumber?: number;
     difficulty?: "easy" | "good" | "hard" | null;
     highestWeight?: number;
     totalSessions?: number;
@@ -350,14 +351,21 @@ export async function upsertExerciseStat(
     input.totalSessions !== undefined
       ? input.totalSessions
       : (typeof existing.totalSessions === "number" ? existing.totalSessions : 1);
-  const lastReps =
-    input.reps !== undefined
-      ? Array.isArray(input.reps)
-        ? input.reps
-        : [input.reps]
-      : Array.isArray(existing.lastReps)
-        ? existing.lastReps
-        : [];
+  const existingReps = Array.isArray(existing.lastReps) ? [...existing.lastReps] : [];
+  let lastReps: number[];
+  if (input.reps !== undefined) {
+    if (Array.isArray(input.reps)) {
+      lastReps = input.reps;
+    } else if (typeof input.setNumber === "number" && input.setNumber >= 1) {
+      const next = [...existingReps];
+      next[input.setNumber - 1] = input.reps;
+      lastReps = next.map((v) => (typeof v === "number" ? v : input.reps as number));
+    } else {
+      lastReps = [input.reps];
+    }
+  } else {
+    lastReps = existingReps;
+  }
   const lastDifficulty =
     input.difficulty !== undefined
       ? input.difficulty
@@ -403,6 +411,7 @@ export async function logSet(
       exerciseKey: input.exerciseKey,
       lastWeight: validated.weight,
       reps: validated.reps,
+      setNumber: validated.setNumber,
       now: input.now ?? validated.createdAt,
     });
   } catch {

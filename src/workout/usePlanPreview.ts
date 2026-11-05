@@ -49,19 +49,22 @@ export function usePlanPreview(input: {
       fetchPreviousWeights(ctx, input.uid, keys).catch(
         (): Record<string, number | null> => ({}),
       ),
-      input.coachEnabled === false
-        ? Promise.resolve([])
-        : fetchRecentDetails(ctx, input.uid, 3).catch(() => []),
+      fetchRecentDetails(ctx, input.uid, 10).catch(() => []),
     ])
-      .then(([previousWeights, recent]) => {
+      .then(([rawPreviousWeights, recent]) => {
         if (cancelled) return;
         const loads = buildLoads(recent);
+        const previousWeights: Record<string, number | null> = { ...rawPreviousWeights };
         const nextWeights: Record<string, NextWeight | undefined> = {};
         for (const t of effectiveExercises) {
           if (t.kind !== "resistance") continue;
-          const prev = previousWeights[t.key] ?? null;
+          const fromStats = previousWeights[t.key] ?? null;
+          const fromHistoryWithSets = loads[t.key]?.find((l) => l.repsPerSet.length > 0)?.weight ?? null;
+          const prev = fromStats ?? fromHistoryWithSets;
+          previousWeights[t.key] = prev;
           // No history, no suggestion — never fabricate numbers.
           if (prev === null) continue;
+          if (input.coachEnabled === false) continue;
           const r = recommendWeight({
             loads: loads[t.key] ?? [],
             targetSets: t.targetSets ?? 1,

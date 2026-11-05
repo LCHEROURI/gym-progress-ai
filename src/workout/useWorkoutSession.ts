@@ -186,8 +186,51 @@ export function useWorkoutSession(input: {
       }
 
       restoredSessionIdRef.current = active.session.id;
+      const restoredExercises = [...active.exercises, ...missingExercises];
+      if (restoredExercises.some((e) => e.targetSets !== null)) {
+        const recent = await fetchRecentDetails({ db }, uid, 10).catch(() => []);
+        const loads = buildLoads(
+          recent.filter((d) => d.session.id !== active.session.id),
+        );
+        recentLoadsRef.current = loads;
+        const nextPreviousReps: Record<string, number[]> = {};
+        const nextSuggestions: Record<string, CoachSuggestion> = {};
+        for (let i = 0; i < restoredExercises.length; i += 1) {
+          const ex = restoredExercises[i]!;
+          if (ex.targetSets === null) continue;
+          const exLoads = loads[ex.exerciseKey] ?? [];
+          const latestLoad = exLoads[0];
+          nextPreviousReps[ex.exerciseKey] = latestLoad?.repsPerSet ?? [];
+          if (ex.previousWeight === null && latestLoad && latestLoad.weight > 0) {
+            restoredExercises[i] = {
+              ...ex,
+              previousWeight: latestLoad.weight,
+              weightUsed:
+                ex.weightUsed && ex.weightUsed > 0 ? ex.weightUsed : latestLoad.weight,
+            };
+          }
+          if (inputRef.current.coachEnabled !== false) {
+            const recommendation = recommendWeight({
+              loads: exLoads,
+              targetSets: ex.targetSets ?? 1,
+              targetRepsMin: ex.targetRepsMin ?? 10,
+              targetRepsMax: ex.targetRepsMax ?? ex.targetRepsMin ?? 10,
+              increment: 5,
+            });
+            nextSuggestions[ex.exerciseKey] = {
+              id: newRecommendationId(),
+              recommendation,
+              reason: recommendation.reason,
+            };
+          }
+        }
+        setPreviousReps(nextPreviousReps);
+        if (inputRef.current.coachEnabled !== false) {
+          setRecommendations(nextSuggestions);
+        }
+      }
       setSession(active.session);
-      setExercises([...active.exercises, ...missingExercises]);
+      setExercises(restoredExercises);
       setSets(active.sets);
     } catch {
       const msg = 'Could not check for an unfinished workout. Retry before starting another workout.';
@@ -237,14 +280,15 @@ export function useWorkoutSession(input: {
         const latestKeys = new Set(exercisesRef.current.map((e) => e.exerciseKey));
         const toAdd: ExerciseSession[] = missingTemplateExercises
           .filter((tmplEx) => !latestKeys.has(tmplEx.key))
-          .map((tmplEx) =>
-            buildExerciseSession({
+          .map((tmplEx) => {
+            const histWeight = recentLoadsRef.current[tmplEx.key]?.[0]?.weight ?? null;
+            return buildExerciseSession({
               template: targetTemplate,
               order: tmplEx.order,
-              previousWeight: previousWeights[tmplEx.key] ?? null,
+              previousWeight: previousWeights[tmplEx.key] ?? histWeight,
               weightUnit: tmplEx.kind === "resistance" ? (inputRef.current.weightUnit ?? "lb") : null,
-            }),
-          );
+            });
+          });
 
         if (toAdd.length > 0) {
           await Promise.allSettled(
@@ -258,6 +302,38 @@ export function useWorkoutSession(input: {
             const trulyNew = toAdd.filter((e) => !prevKeys.has(e.exerciseKey));
             return [...prev, ...trulyNew];
           });
+
+          setPreviousReps((prev) => {
+            const next = { ...prev };
+            for (const ex of toAdd) {
+              if (ex.targetSets === null) continue;
+              next[ex.exerciseKey] =
+                recentLoadsRef.current[ex.exerciseKey]?.[0]?.repsPerSet ?? [];
+            }
+            return next;
+          });
+
+          if (inputRef.current.coachEnabled !== false) {
+            setRecommendations((prev) => {
+              const next = { ...prev };
+              for (const ex of toAdd) {
+                if (ex.targetSets === null || next[ex.exerciseKey]) continue;
+                const recommendation = recommendWeight({
+                  loads: recentLoadsRef.current[ex.exerciseKey] ?? [],
+                  targetSets: ex.targetSets ?? 1,
+                  targetRepsMin: ex.targetRepsMin ?? 10,
+                  targetRepsMax: ex.targetRepsMax ?? ex.targetRepsMin ?? 10,
+                  increment: 5,
+                });
+                next[ex.exerciseKey] = {
+                  id: newRecommendationId(),
+                  recommendation,
+                  reason: recommendation.reason,
+                };
+              }
+              return next;
+            });
+          }
         }
       }
 
@@ -276,17 +352,21 @@ export function useWorkoutSession(input: {
       const effectiveExercises = effectiveTemplate.exercises;
       const keys = effectiveExercises.map((e) => e.key);
       let previousWeightsUnavailable = false;
-      const [previousWeights, recent] = await Promise.all([
+      const [rawPreviousWeights, recent] = await Promise.all([
         fetchPreviousWeights({ db }, uid, keys).catch(() => {
           previousWeightsUnavailable = true;
           return Object.fromEntries(keys.map((key) => [key, null]));
         }),
-        fetchRecentDetails({ db }, uid, 3).catch(() => []),
+        fetchRecentDetails({ db }, uid, 10).catch(() => []),
       ]);
       const loads = buildLoads(recent);
       recentLoadsRef.current = loads;
+      const previousWeights: Record<string, number | null> = { ...rawPreviousWeights };
       const nextPreviousReps: Record<string, number[]> = {};
       for (const key of keys) {
+        const fromHistoryWithSets =
+          loads[key]?.find((l) => l.repsPerSet.length > 0)?.weight ?? null;
+        previousWeights[key] = previousWeights[key] ?? fromHistoryWithSets;
         nextPreviousReps[key] = loads[key]?.[0]?.repsPerSet ?? [];
       }
       const created = await startSession({ db }, {
