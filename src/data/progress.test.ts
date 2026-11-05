@@ -11,7 +11,9 @@ const exercises = MONDAY.exercises.map((t) =>
 );
 
 const mocks = vi.hoisted(() => ({
-  getDocs: vi.fn(async () => ({ docs: [] })),
+  getDocs: vi.fn<(target?: unknown) => Promise<{ docs: Array<{ data: () => unknown }> }>>(
+    async () => ({ docs: [] }),
+  ),
 }));
 
 vi.mock("firebase/firestore", () => ({
@@ -79,5 +81,33 @@ describe("fetchProgressFacts", () => {
       weightUsed: 70,
       scheduledDate: "2026-09-28",
     });
+  });
+
+  it("fetches exercise subcollections concurrently across sessions while preserving session order", async () => {
+    const secondSession = buildSession({
+      sessionId: "s2",
+      uid: "u1",
+      template: MONDAY,
+      scheduledDate: "2026-09-21",
+      now,
+    });
+    let inFlight = 0;
+    let maxInFlight = 0;
+    mocks.getDocs.mockImplementation(async (target?: unknown) => {
+      const path = String(target);
+      if (path === "users/u1/workoutSessions") {
+        return { docs: [{ data: () => session }, { data: () => secondSession }] };
+      }
+      inFlight += 1;
+      maxInFlight = Math.max(maxInFlight, inFlight);
+      await new Promise((resolve) => setTimeout(resolve, 5));
+      inFlight -= 1;
+      return { docs: [{ data: () => exercises[0] }] };
+    });
+
+    const facts = await fetchProgressFacts({ db: {} as never }, "u1");
+    expect(maxInFlight).toBe(2);
+    expect(facts.sessions.map((s) => s.id)).toEqual(["s1", "s2"]);
+    expect(facts.exercises.map((e) => e.sessionId)).toEqual(["s1", "s2"]);
   });
 });

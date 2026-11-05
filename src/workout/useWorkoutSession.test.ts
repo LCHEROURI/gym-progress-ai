@@ -438,4 +438,72 @@ describe("useWorkoutSession + coach wiring", () => {
 
     expect(renderCount).toBeLessThanOrEqual(baselineRenderCount + 6);
   });
+
+  it("reconciles newly added profile extra exercises against the latest exercises state without duplicating existing ones", async () => {
+    const activeSession = {
+      ...buildSession({ sessionId: "s-reconcile", uid: "u1", template: MONDAY, scheduledDate: "2026-09-28", now: t0 }),
+      status: "in_progress" as const,
+    };
+    const initialExercises = MONDAY.exercises.map((t) =>
+      buildExerciseSession({ template: MONDAY, order: t.order, previousWeight: null, weightUnit: "lb", now: t0 }),
+    );
+    mocks.fetchActiveWorkout.mockResolvedValueOnce({
+      session: activeSession,
+      exercises: initialExercises,
+      sets: [],
+    } as never);
+    mocks.fetchPreviousWeights
+      .mockResolvedValueOnce({ "custom-triceps": 40 })
+      .mockResolvedValueOnce({ "custom-curls": 25 });
+
+    const firstExtra = {
+      key: "custom-triceps",
+      name: "Triceps Pushdown",
+      targetSets: 2,
+      targetRepsMin: 10,
+      targetRepsMax: 10,
+      tip: "",
+    };
+    const secondExtra = {
+      key: "custom-curls",
+      name: "Bicep Curls",
+      targetSets: 2,
+      targetRepsMin: 10,
+      targetRepsMax: 12,
+      tip: "",
+    };
+
+    const { result, rerender } = renderHook(
+      ({ extraExercises }) =>
+        useWorkoutSession({
+          db,
+          uid: "u1",
+          template: MONDAY,
+          scheduledDate: "2026-09-28",
+          profile: { extraExercises },
+        }),
+      { initialProps: { extraExercises: [firstExtra] } },
+    );
+
+    await waitForActivePhase(result);
+    await waitFor(() =>
+      expect(result.current.exercises.some((e) => e.exerciseKey === "custom-triceps")).toBe(true),
+    );
+    mocks.createExercise.mockClear();
+
+    rerender({ extraExercises: [firstExtra, secondExtra] });
+
+    await waitFor(() =>
+      expect(result.current.exercises.some((e) => e.exerciseKey === "custom-curls")).toBe(true),
+    );
+    expect(mocks.createExercise).toHaveBeenCalledTimes(1);
+    expect(mocks.createExercise).toHaveBeenCalledWith(
+      { db },
+      expect.objectContaining({
+        uid: "u1",
+        sessionId: "s-reconcile",
+        exercise: expect.objectContaining({ exerciseKey: "custom-curls", weightUsed: 25 }),
+      }),
+    );
+  });
 });

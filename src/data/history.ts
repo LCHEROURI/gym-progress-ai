@@ -72,6 +72,34 @@ export async function fetchHistory(
   );
 }
 
+async function fetchSessionExercisesAndSets(
+  ctx: RepoCtx,
+  uid: string,
+  session: WorkoutSession,
+): Promise<HistoryDetail> {
+  const exSnap = await getDocs(
+    collection(ctx.db, `${sessionsPath(uid)}/${session.id}/exercises`),
+  );
+  const exercises = exSnap.docs.map((e) =>
+    exerciseSessionSchema.parse(withDateFields(e.data(), EXERCISE_DATE_FIELDS)),
+  );
+  const setGroups = await Promise.all(
+    exercises.map(async (e) => {
+      const setSnap = await getDocs(
+        collection(
+          ctx.db,
+          `${sessionsPath(uid)}/${session.id}/exercises/${e.exerciseKey}/sets`,
+        ),
+      );
+      return setSnap.docs.map((s) => ({
+        ...setSchema.parse(withDateFields(s.data(), SET_DATE_FIELDS)),
+        exerciseKey: e.exerciseKey,
+      }));
+    }),
+  );
+  return { session, exercises, sets: setGroups.flat() };
+}
+
 export async function fetchHistoryDetail(
   ctx: RepoCtx,
   uid: string,
@@ -81,24 +109,7 @@ export async function fetchHistoryDetail(
   const session = workoutSessionSchema.parse(
     withDateFields(sessionSnap.data(), SESSION_DATE_FIELDS),
   );
-  const exSnap = await getDocs(collection(ctx.db, `${sessionsPath(uid)}/${sessionId}/exercises`));
-  const exercises = exSnap.docs.map((e) =>
-    exerciseSessionSchema.parse(withDateFields(e.data(), EXERCISE_DATE_FIELDS)),
-  );
-
-  const sets: LoggedSet[] = [];
-  for (const e of exercises) {
-    const setSnap = await getDocs(
-      collection(ctx.db, `${sessionsPath(uid)}/${sessionId}/exercises/${e.exerciseKey}/sets`),
-    );
-    for (const s of setSnap.docs) {
-      sets.push({
-        ...setSchema.parse(withDateFields(s.data(), SET_DATE_FIELDS)),
-        exerciseKey: e.exerciseKey,
-      });
-    }
-  }
-  return { session, exercises, sets };
+  return fetchSessionExercisesAndSets(ctx, uid, session);
 }
 
 /** The most recent session details (newest first) — coach load history. */
@@ -107,8 +118,15 @@ export async function fetchRecentDetails(
   uid: string,
   max = 3,
 ): Promise<HistoryDetail[]> {
-  const rows = await fetchHistory(ctx, uid, max);
-  return Promise.all(rows.map((r) => fetchHistoryDetail(ctx, uid, r.id)));
+  const snap = await getDocs(
+    query(collection(ctx.db, sessionsPath(uid)), orderBy("scheduledDate", "desc"), limit(max)),
+  );
+  const sessions = snap.docs.map((d) =>
+    workoutSessionSchema.parse(withDateFields(d.data(), SESSION_DATE_FIELDS)),
+  );
+  return Promise.all(
+    sessions.map((session) => fetchSessionExercisesAndSets(ctx, uid, session)),
+  );
 }
 
 export type { Firestore, WorkoutSet };

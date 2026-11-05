@@ -2,6 +2,7 @@ import type { FirebaseApp } from "firebase/app";
 import type { Firestore } from "firebase/firestore";
 import { getMessaging, getToken } from "firebase/messaging";
 import { saveFcmToken } from "../data/fcm-tokens";
+import { parseFcmVapidKey } from "../shared/env";
 
 export type PushEnableResult = "on" | "denied" | "unsupported";
 
@@ -28,7 +29,9 @@ export async function enablePushReminders(input: {
   const permission = await Notification.requestPermission();
   if (permission !== "granted") return "denied";
 
-  const vapidKey = (import.meta.env.VITE_FCM_VAPID_KEY as string | undefined)?.trim();
+  const vapidKey = parseFcmVapidKey(
+    import.meta.env as Record<string, string | undefined>,
+  );
   if (!vapidKey) {
     throw new Error(
       "Push key missing — set VITE_FCM_VAPID_KEY (Firebase console → Cloud Messaging → Web Push certificates) and rebuild.",
