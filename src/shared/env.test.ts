@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { EnvError, parseEnv } from "./env";
+import { EnvError, parseEnv, parseFcmVapidKey } from "./env";
 
 const complete = {
   VITE_FIREBASE_API_KEY: "k",
@@ -51,5 +51,17 @@ describe("parseEnv", () => {
     expect(
       parseEnv({ ...complete, VITE_APP_CHECK_SITE_KEY: "" }).appCheckSiteKey,
     ).toBeUndefined();
+  });
+
+  it("reads and trims optional VITE_FCM_VAPID_KEY when configured", () => {
+    expect(parseEnv(complete).fcmVapidKey).toBeUndefined();
+    expect(
+      parseEnv({ ...complete, VITE_FCM_VAPID_KEY: "  vapid-123 \r\n" }).fcmVapidKey,
+    ).toBe("vapid-123");
+    expect(
+      parseEnv({ ...complete, VITE_FCM_VAPID_KEY: "   " }).fcmVapidKey,
+    ).toBeUndefined();
+    expect(parseFcmVapidKey({ VITE_FCM_VAPID_KEY: " \n key-abc \t " })).toBe("key-abc");
+    expect(parseFcmVapidKey({ VITE_FCM_VAPID_KEY: "   " })).toBeUndefined();
   });
 });

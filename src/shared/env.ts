@@ -23,6 +23,7 @@ const KEYS: Record<string, string> = {
  */
 const OPTIONAL_KEYS: Record<string, string> = {
   VITE_APP_CHECK_SITE_KEY: "appCheckSiteKey",
+  VITE_FCM_VAPID_KEY: "fcmVapidKey",
 };
 
 const schema = z.object({
@@ -34,10 +35,17 @@ const schema = z.object({
   appId: z.string().min(1),
   /** reCAPTCHA v3 site key for App Check; absent means "do not initialize". */
   appCheckSiteKey: z.string().min(1).optional(),
+  /** Web Push VAPID public key for FCM reminders; absent means push cannot be enabled. */
+  fcmVapidKey: z.string().min(1).optional(),
   useEmulator: z.boolean(),
 });
 
 export type AppEnv = z.infer<typeof schema>;
+
+export function parseFcmVapidKey(raw: Record<string, string | undefined>): string | undefined {
+  const trimmed = raw.VITE_FCM_VAPID_KEY?.trim();
+  return trimmed ? z.string().min(1).parse(trimmed) : undefined;
+}
 
 export function parseEnv(raw: Record<string, string | undefined>): AppEnv {
   const missing = Object.keys(KEYS).filter((k) => !raw[k]);
@@ -47,7 +55,7 @@ export function parseEnv(raw: Record<string, string | undefined>): AppEnv {
   );
   const optional = Object.fromEntries(
     Object.entries(OPTIONAL_KEYS)
-      .map(([k, v]) => [v, raw[k]])
+      .map(([k, v]) => [v, raw[k]?.trim()])
       // An empty string is "unset", not "configured with an empty key".
       .filter(([, value]) => Boolean(value)),
   );

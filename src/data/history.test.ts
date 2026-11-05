@@ -27,7 +27,7 @@ vi.mock("firebase/firestore", () => ({
   getDocs: mocks.getDocs,
 }));
 
-import { fetchHistory, fetchHistoryDetail } from "./history";
+import { fetchHistory, fetchHistoryDetail, fetchRecentDetails } from "./history";
 
 const ctx = { db: {} as never };
 
@@ -181,5 +181,34 @@ describe("fetchHistoryDetail", () => {
     expect(detail.sets).toEqual([
       { setNumber: 1, weight: 70, reps: 10, completed: true, createdAt: now, exerciseKey: "bike-warmup" },
     ]);
+  });
+});
+
+describe("fetchRecentDetails", () => {
+  it("loads recent session details without redundantly re-reading session docs via getDoc", async () => {
+    mocks.getDocs
+      .mockResolvedValueOnce({ docs: [{ data: () => sessionDoc() }] } as never)
+      .mockResolvedValueOnce({ docs: [{ data: () => exerciseDoc() }] } as never)
+      .mockResolvedValueOnce({
+        docs: [
+          {
+            data: () => ({
+              setNumber: 1,
+              weight: 70,
+              reps: 10,
+              completed: true,
+              createdAt: timestamp(now),
+            }),
+          },
+        ],
+      } as never);
+
+    const details = await fetchRecentDetails(ctx, "u1", 1);
+    expect(details).toHaveLength(1);
+    expect(details[0].session.id).toBe("s1");
+    expect(details[0].exercises).toHaveLength(1);
+    expect(details[0].sets).toHaveLength(1);
+    expect(mocks.getDoc).not.toHaveBeenCalled();
+    expect(mocks.getDocs).toHaveBeenCalledTimes(3);
   });
 });

@@ -181,14 +181,16 @@ export const sundayWeeklyReports = onSchedule(
           continue;
         }
 
+        const exSnaps = await Promise.all(
+          snap.docs.map((d) => d.ref.collection("exercises").get()),
+        );
         const exercises: ExerciseFact[] = [];
-        for (const d of snap.docs) {
-          const s = sessionFactFrom(d.data());
-          const exSnap = await d.ref.collection("exercises").get();
-          for (const e of exSnap.docs) {
+        snap.docs.forEach((d, idx) => {
+          const s = sessions[idx];
+          for (const e of exSnaps[idx].docs) {
             exercises.push(exerciseFactFrom(s.id, s.scheduledDate, e.data()));
           }
-        }
+        });
 
         const draft: WeeklyReport = buildWeeklyReport({
           weekStart,

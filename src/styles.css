@@ -818,6 +818,57 @@ input {
   box-shadow: 0 -4px 16px rgba(16, 24, 40, 0.18);
 }
 
+.restTimer {
+  margin: 0 0 14px;
+  padding: 16px;
+  display: grid;
+  gap: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+
+.restCount {
+  margin: 0;
+  color: var(--green);
+  font-size: 32px;
+  font-weight: 760;
+  font-variant-numeric: tabular-nums;
+  letter-spacing: -0.04em;
+  line-height: 1.05;
+}
+
+.restButtons,
+.restOptions {
+  display: flex;
+  flex-wrap: wrap;
+  flex-wrap: balance;
+  gap: 8px;
+}
+
+.restButtons button,
+.restOptions button {
+  flex: 1 1 88px;
+  min-inline-size: 0;
+  min-block-size: 48px;
+  padding: 0 12px;
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--ink);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius);
+  cursor: pointer;
+}
+
+.restOptions button[aria-pressed="true"] {
+  background: var(--green);
+  border-color: var(--green);
+  color: #ffffff;
+}
+
 /* Disabled affordance LAST so it wins the cascade (visual-findings V3: the
    old 0.6-opacity white-on-green SEND was ~1.5:1 and unreadable). */
 button:disabled,
@@ -1588,6 +1639,17 @@ main.landingShell > .appBar {
 .historyResult.isComplete {
   background: var(--green-soft);
   color: var(--green);
+}
+
+.historyStamp {
+  flex: 0 0 auto;
+  padding: 5px 10px;
+  border-radius: 999px;
+  background: var(--green-soft);
+  color: var(--green);
+  font-size: 14px;
+  font-weight: 750;
+  white-space: nowrap;
 }
 
 .historyChevron {

@@ -102,10 +102,13 @@ export function useWorkoutSession(input: {
   const reconciledSessionKeyRef = useRef<string | null>(null);
 
   const inputRef = useRef(input);
-  useEffect(() => {
-    inputRef.current = input;
-  }, [input]);
+  inputRef.current = input;
+  const sessionRef = useRef(session);
+  sessionRef.current = session;
+  const exercisesRef = useRef(exercises);
+  exercisesRef.current = exercises;
 
+  const sessionId = session?.id;
   const templateId = template?.id;
   const extraExerciseKeys = (profile?.extraExercises ?? []).map((e) => e.key).join(',');
 
@@ -190,10 +193,10 @@ export function useWorkoutSession(input: {
   }, [restore]);
 
   useEffect(() => {
-    const currentSession = session;
-    if (!currentSession?.id || !db || !uid) return;
+    const currentSession = sessionRef.current;
+    if (!sessionId || !currentSession || !db || !uid) return;
 
-    const reconcileKey = `${currentSession.id}_${templateId}_${extraExerciseKeys}_${weightUnit}`;
+    const reconcileKey = `${sessionId}_${templateId}_${extraExerciseKeys}_${weightUnit}`;
     if (reconciledSessionKeyRef.current === reconcileKey) {
       return;
     }
@@ -208,7 +211,7 @@ export function useWorkoutSession(input: {
         ? buildEffectiveTemplate(baseTmpl, currentProfile)
         : baseTmpl;
 
-      const existingKeys = new Set(exercises.map((e) => e.exerciseKey));
+      const existingKeys = new Set(exercisesRef.current.map((e) => e.exerciseKey));
       const missingTemplateExercises = targetTemplate.exercises.filter(
         (tmplEx) => !existingKeys.has(tmplEx.key),
       );
@@ -220,33 +223,38 @@ export function useWorkoutSession(input: {
           uid,
           missingKeys,
         ).catch(() => ({}));
-        const toAdd: ExerciseSession[] = missingTemplateExercises.map((tmplEx) =>
-          buildExerciseSession({
-            template: targetTemplate,
-            order: tmplEx.order,
-            previousWeight: previousWeights[tmplEx.key] ?? null,
-            weightUnit: tmplEx.kind === "resistance" ? (inputRef.current.weightUnit ?? 'lb') : null,
-          }),
-        );
+        const latestKeys = new Set(exercisesRef.current.map((e) => e.exerciseKey));
+        const toAdd: ExerciseSession[] = missingTemplateExercises
+          .filter((tmplEx) => !latestKeys.has(tmplEx.key))
+          .map((tmplEx) =>
+            buildExerciseSession({
+              template: targetTemplate,
+              order: tmplEx.order,
+              previousWeight: previousWeights[tmplEx.key] ?? null,
+              weightUnit: tmplEx.kind === "resistance" ? (inputRef.current.weightUnit ?? "lb") : null,
+            }),
+          );
 
-        await Promise.allSettled(
-          toAdd.map((exercise) =>
-            createExercise({ db }, { uid, sessionId: currentSession.id, exercise })
-          )
-        );
+        if (toAdd.length > 0) {
+          await Promise.allSettled(
+            toAdd.map((exercise) =>
+              createExercise({ db }, { uid, sessionId, exercise }),
+            ),
+          );
 
-        setExercises((prev) => {
-          const prevKeys = new Set(prev.map((e) => e.exerciseKey));
-          const trulyNew = toAdd.filter((e) => !prevKeys.has(e.exerciseKey));
-          return [...prev, ...trulyNew];
-        });
+          setExercises((prev) => {
+            const prevKeys = new Set(prev.map((e) => e.exerciseKey));
+            const trulyNew = toAdd.filter((e) => !prevKeys.has(e.exerciseKey));
+            return [...prev, ...trulyNew];
+          });
+        }
       }
 
       reconciledSessionKeyRef.current = reconcileKey;
     };
 
     void reconcileExtras();
-  }, [session?.id, templateId, extraExerciseKeys, weightUnit, db, uid]);
+  }, [sessionId, templateId, extraExerciseKeys, weightUnit, db, uid]);
 
   const start = useCallback(async (initialWeights?: Record<string, number>) => {
     if (starting.current || restoringRef.current || restoreErrorRef.current) return;
