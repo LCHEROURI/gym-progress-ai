@@ -14,15 +14,30 @@ export function buildLoads(details: HistoryDetail[]): Record<string, ExerciseLoa
       shortnessOfBreath: d.session.shortnessOfBreathReported,
     };
     for (const e of d.exercises) {
-      if (!e.completed || e.weightUsed === null) continue;
-      const repsPerSet = d.sets
+      if (e.targetSets === null) continue;
+      const exerciseSets = d.sets
         .filter((s) => s.exerciseKey === e.exerciseKey && s.completed)
-        .sort((a, b) => a.setNumber - b.setNumber)
-        .map((s) => s.reps);
+        .sort((a, b) => a.setNumber - b.setNumber);
+      const repsPerSet = exerciseSets.map((s) => s.reps);
+      const weight =
+        typeof e.weightUsed === "number" && e.weightUsed > 0
+          ? e.weightUsed
+          : (exerciseSets[0]?.weight ?? e.weightUsed);
+      const hasRecordedWork =
+        (e.completed && weight !== null) ||
+        (typeof weight === "number" && weight > 0) ||
+        repsPerSet.length > 0;
+      if (!hasRecordedWork || weight === null) continue;
+      const effectiveReps =
+        repsPerSet.length > 0
+          ? repsPerSet
+          : d.sets.length === 0 && typeof weight === "number" && weight > 0
+            ? Array.from({ length: e.targetSets ?? 2 }, () => e.targetRepsMin ?? 10)
+            : [];
       const list = out[e.exerciseKey] ?? [];
       list.push({
-        weight: e.weightUsed,
-        repsPerSet,
+        weight,
+        repsPerSet: effectiveReps,
         difficulty: e.difficulty,
         painStatus: e.painStatus,
         symptoms,
