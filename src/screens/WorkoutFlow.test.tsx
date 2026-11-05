@@ -252,6 +252,12 @@ describe("one-tap weight pre-fill (tap NEXT → start → prefilled)", () => {
       expect(
         within(byName("Leg Press")).getByLabelText("Today's weight in lb"),
       ).toHaveValue(75);
+      expect(
+        within(byName("Leg Press")).getByLabelText("Set 1 reps"),
+      ).toHaveValue(10);
+      expect(
+        within(byName("Leg Press")).getByLabelText("Set 2 reps"),
+      ).toHaveValue(10);
       // Un-picked exercises keep the LAST weight — nothing else changes.
       expect(
         within(byName("Chest Press")).getByLabelText("Today's weight in lb"),

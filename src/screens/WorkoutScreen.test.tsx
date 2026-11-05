@@ -121,4 +121,45 @@ describe("WorkoutScreen (gym clipboard)", () => {
     renderScreen({ exercises: kgExercises });
     expect(screen.getAllByLabelText("Today's weight in kg").length).toBeGreaterThan(0);
   });
+
+  it("leaves the weight last used and the reps last performed in the input boxes as a past reference", () => {
+    renderScreen({
+      previousReps: { "leg-press": [10, 8] },
+    });
+    expect(screen.getByText("LAST: 70 LB · 10, 8 REPS")).toBeInTheDocument();
+    expect(screen.getAllByLabelText("Today's weight in lb")[0]).toHaveValue(70);
+    expect(screen.getAllByLabelText("Set 1 reps")[0]).toHaveValue(10);
+    expect(screen.getAllByLabelText("Set 2 reps")[0]).toHaveValue(8);
+  });
+
+  it("updates weight and rep input boxes when accepting the AI coach suggestion", () => {
+    const props = renderScreen({
+      previousReps: { "leg-press": [10, 10] },
+      recommendations: {
+        "leg-press": {
+          recommendation: {
+            action: "increase",
+            previousWeight: 70,
+            suggestedWeight: 75,
+            previousReps: [10, 10],
+            suggestedReps: 12,
+            targetSets: 2,
+            lastDifficulty: "easy",
+            reason:
+              "You completed 10, 10 reps at 70 lb and rated the resistance as easy. For steady muscle mass building at 73, a small increase may be reasonable: try 75 lb for 2 sets of 12 controlled reps.",
+            blockedBySafety: false,
+            contextFacts: {},
+          },
+          reason:
+            "You completed 10, 10 reps at 70 lb and rated the resistance as easy. For steady muscle mass building at 73, a small increase may be reasonable: try 75 lb for 2 sets of 12 controlled reps.",
+        },
+      },
+      onDecide: vi.fn(),
+    });
+    expect(screen.getAllByLabelText("Set 1 reps")[0]).toHaveValue(10);
+    fireEvent.click(screen.getByRole("button", { name: "USE 75 LB" }));
+    expect(props.onPatchExercise).toHaveBeenCalledWith("leg-press", { weightUsed: 75 });
+    expect(screen.getAllByLabelText("Set 1 reps")[0]).toHaveValue(12);
+    expect(screen.getAllByLabelText("Set 2 reps")[0]).toHaveValue(12);
+  });
 });

@@ -28,6 +28,7 @@ import { buildExerciseSession, buildSession } from "../domain/session";
 import {
   createExercise,
   fetchActiveWorkout,
+  fetchPreviousReps,
   fetchPreviousWeights,
   logSet,
   saveExercise,
@@ -283,5 +284,24 @@ describe("upsertExerciseStat", () => {
       "users/u1/exerciseStats/leg-press",
       expect.objectContaining({ lastWeight: 85 }),
     );
+  });
+
+  it("persists per-set reps arrays and reads them back via fetchPreviousReps", async () => {
+    mocks.getDoc.mockResolvedValueOnce({ exists: () => false, data: () => undefined } as never);
+    const result = await upsertExerciseStat(ctx, {
+      uid: "u1",
+      exerciseKey: "leg-press",
+      lastWeight: 70,
+      reps: [10, 10],
+      difficulty: "good",
+      now,
+    });
+    expect(result.lastReps).toEqual([10, 10]);
+
+    mocks.getDoc.mockResolvedValueOnce({
+      data: () => ({ lastWeight: 70, lastReps: [10, 10] }),
+    } as never);
+    const prevReps = await fetchPreviousReps(ctx, "u1", ["leg-press"]);
+    expect(prevReps["leg-press"]).toEqual([10, 10]);
   });
 });

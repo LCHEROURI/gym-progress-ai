@@ -440,6 +440,8 @@ function ActiveFlow(props: {
         template={workoutTemplate}
         session={flow.session}
         exercises={flow.exercises}
+        sets={flow.sets}
+        previousReps={flow.previousReps}
         syncState={props.syncState}
         error={flow.error}
         restSeconds={props.profile?.defaultRestSeconds}

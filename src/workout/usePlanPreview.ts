@@ -17,6 +17,9 @@ import { recommendWeight } from "../coach/progression";
 export interface NextWeight {
   action: "increase" | "keep" | "decrease";
   suggestedWeight: number;
+  suggestedReps?: number;
+  previousReps?: number[];
+  lastDifficulty?: "easy" | "good" | "hard" | null;
 }
 
 export interface PlanPreview {
@@ -63,11 +66,15 @@ export function usePlanPreview(input: {
             loads: loads[t.key] ?? [],
             targetSets: t.targetSets ?? 1,
             targetRepsMin: t.targetRepsMin ?? 10,
+            targetRepsMax: t.targetRepsMax ?? t.targetRepsMin ?? 10,
             increment: increments?.[t.key] ?? 5,
           });
           nextWeights[t.key] = {
             action: r.action,
             suggestedWeight: r.suggestedWeight,
+            suggestedReps: r.suggestedReps,
+            previousReps: r.previousReps,
+            lastDifficulty: r.lastDifficulty,
           };
         }
         setPreview({ previousWeights, nextWeights });

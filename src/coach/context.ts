@@ -130,6 +130,10 @@ export function buildCoachContext(input: {
       }
       const plan = progress.map((p) => {
         const difficulty = latestByKey.get(p.exerciseKey)?.difficulty ?? null;
+        const baseWeight = p.currentWeight ?? 0;
+        const suggestedWeight =
+          difficulty === "easy" || difficulty === "good" ? baseWeight + 5 : baseWeight;
+        const suggestedReps = 10;
         const advice =
           difficulty === "easy"
             ? "increase-ok"
@@ -143,36 +147,63 @@ export function buildCoachContext(input: {
           exerciseName: p.exerciseName,
           lastWeight: p.currentWeight,
           lastDifficulty: difficulty,
+          suggestedWeight,
+          suggestedReps,
           advice,
         };
       });
       const line = (m: (typeof plan)[number]) =>
         m.advice === "increase-ok"
-          ? `${m.exerciseName}: ${m.lastWeight} lb felt easy — consider a small increase.`
+          ? `${m.exerciseName}: ${m.lastWeight} lb felt easy — consider a small increase to ${m.suggestedWeight} lb for 2 sets of ${m.suggestedReps} controlled reps to build muscle mass.`
           : m.advice === "keep-or-nudge"
-            ? `${m.exerciseName}: ${m.lastWeight} lb felt good — keep it or nudge up if all sets felt comfortable.`
+            ? `${m.exerciseName}: ${m.lastWeight} lb felt good — keep ${m.lastWeight} lb for 2 sets of ${m.suggestedReps} controlled reps or nudge up to ${m.suggestedWeight} lb if all sets felt comfortable.`
             : m.advice === "keep"
-              ? `${m.exerciseName}: ${m.lastWeight} lb felt hard — keep it steady next workout.`
-              : `${m.exerciseName}: ${m.lastWeight} lb last time — keep it and rate how it feels.`;
+              ? `${m.exerciseName}: ${m.lastWeight} lb felt hard — keep it steady at ${m.lastWeight} lb for 2 sets of ${m.suggestedReps} smooth reps next workout so joints and tendons recover well.`
+              : `${m.exerciseName}: ${m.lastWeight} lb last time — keep it for 2 sets of ${m.suggestedReps} controlled reps and rate how it feels.`;
       return {
         ...base,
-        facts: { lastEffort, plan },
+        facts: {
+          lastEffort,
+          plan,
+          lifterProfile: "active-healthy-73yo-male-hypertrophy-fitness",
+        },
         summaryLines: plan.map(line),
       };
     }
     case "weightToday": {
-      const machines = progress.map((p) => ({
-        exerciseKey: p.exerciseKey,
-        exerciseName: p.exerciseName,
-        lastWeight: p.currentWeight,
-        lastResult: p.latestResult,
-        trend: p.trend,
-      }));
+      const latestByKey = new Map<string, ExerciseFact>();
+      for (const f of input.exercises.filter((e) => e.completed)) {
+        const cur = latestByKey.get(f.exerciseKey);
+        if (!cur || f.scheduledDate > cur.scheduledDate) {
+          latestByKey.set(f.exerciseKey, f);
+        }
+      }
+      const machines = progress.map((p) => {
+        const difficulty = latestByKey.get(p.exerciseKey)?.difficulty ?? null;
+        const baseWeight = p.currentWeight ?? 0;
+        const suggestedWeight =
+          difficulty === "easy" || difficulty === "good" ? baseWeight + 5 : baseWeight;
+        const suggestedReps = 10;
+        return {
+          exerciseKey: p.exerciseKey,
+          exerciseName: p.exerciseName,
+          lastWeight: p.currentWeight,
+          lastDifficulty: difficulty,
+          suggestedWeight,
+          suggestedReps,
+          lastResult: p.latestResult,
+          trend: p.trend,
+        };
+      });
       return {
         ...base,
-        facts: { machines },
+        facts: {
+          machines,
+          lifterProfile: "active-healthy-73yo-male-hypertrophy-fitness",
+        },
         summaryLines: machines.map(
-          (m) => `${m.exerciseName} last used ${m.lastWeight} lb (${m.lastResult}).`,
+          (m) =>
+            `${m.exerciseName} last used ${m.lastWeight} lb (${m.lastResult}) — today aim for ${m.suggestedWeight} lb for 2 sets of ${m.suggestedReps} controlled reps.`,
         ),
       };
     }
