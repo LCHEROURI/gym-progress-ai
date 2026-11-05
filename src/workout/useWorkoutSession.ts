@@ -21,7 +21,11 @@ import {
 } from "../data/session-repository";
 import { fetchRecentDetails } from "../data/history";
 import { buildLoads } from "../coach/loads";
-import { recommendWeight, type Recommendation } from "../coach/progression";
+import {
+  recommendWeight,
+  type ExerciseLoad,
+  type Recommendation,
+} from "../coach/progression";
 import {
   buildRecommendationRecord,
   newRecommendationId,
@@ -43,6 +47,7 @@ export interface WorkoutFlow {
   session: WorkoutSession | null;
   exercises: ExerciseSession[];
   sets: LoggedSet[];
+  previousReps?: Record<string, number[]>;
   error: string | null;
   /** initialWeights: tapped suggestion picks, keyed by exercise key. */
   start: (initialWeights?: Record<string, number>) => Promise<void>;
@@ -79,6 +84,7 @@ export function useWorkoutSession(input: {
   const [exercises, setExercises] = useState<ExerciseSession[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [sets, setSets] = useState<LoggedSet[]>([]);
+  const [previousReps, setPreviousReps] = useState<Record<string, number[]>>({});
   const [recommendations, setRecommendations] = useState<Record<string, CoachSuggestion>>({});
   const [restoring, setRestoring] = useState(true);
   const [restoreError, setRestoreError] = useState<string | null>(null);
@@ -107,6 +113,11 @@ export function useWorkoutSession(input: {
   sessionRef.current = session;
   const exercisesRef = useRef(exercises);
   exercisesRef.current = exercises;
+  const setsRef = useRef(sets);
+  setsRef.current = sets;
+  const previousRepsRef = useRef(previousReps);
+  previousRepsRef.current = previousReps;
+  const recentLoadsRef = useRef<Record<string, ExerciseLoad[]>>({});
 
   const sessionId = session?.id;
   const templateId = template?.id;
@@ -272,6 +283,12 @@ export function useWorkoutSession(input: {
         }),
         fetchRecentDetails({ db }, uid, 3).catch(() => []),
       ]);
+      const loads = buildLoads(recent);
+      recentLoadsRef.current = loads;
+      const nextPreviousReps: Record<string, number[]> = {};
+      for (const key of keys) {
+        nextPreviousReps[key] = loads[key]?.[0]?.repsPerSet ?? [];
+      }
       const created = await startSession({ db }, {
         sessionId: newSessionId(),
         uid,
@@ -286,13 +303,13 @@ export function useWorkoutSession(input: {
       // optional recommendation writes must never strand the user on the plan.
       setSession(created.session);
       setExercises(created.exercises);
+      setPreviousReps(nextPreviousReps);
       setRecommendations({});
       if (previousWeightsUnavailable) {
         setError("Could not load previous machine weights; this workout started without prefilled history.");
       }
 
       if (input.coachEnabled === false) return;
-      const loads = buildLoads(recent);
       const suggestions: Record<string, CoachSuggestion> = {};
       try {
         for (const exercise of effectiveExercises) {
@@ -301,6 +318,7 @@ export function useWorkoutSession(input: {
             loads: loads[exercise.key] ?? [],
             targetSets: exercise.targetSets ?? 1,
             targetRepsMin: exercise.targetRepsMin ?? 10,
+            targetRepsMax: exercise.targetRepsMax ?? exercise.targetRepsMin ?? 10,
             increment: 5,
           });
           const id = newRecommendationId();
@@ -349,6 +367,58 @@ export function useWorkoutSession(input: {
         setExercises((list) =>
           list.map((e) => (e.exerciseKey === exerciseKey ? merged : e)),
         );
+
+        if (
+          inputRef.current.coachEnabled !== false &&
+          merged.targetSets !== null &&
+          (patch.difficulty !== undefined || patch.painStatus !== undefined) &&
+          (merged.difficulty !== null || merged.painStatus !== null)
+        ) {
+          const activeWeight = merged.weightUsed ?? merged.previousWeight ?? 0;
+          if (activeWeight > 0) {
+            const loggedReps = setsRef.current
+              .filter((s) => s.exerciseKey === exerciseKey && s.completed)
+              .sort((a, b) => a.setNumber - b.setNumber)
+              .map((s) => s.reps);
+            const fallbackReps = previousRepsRef.current[exerciseKey] ?? [];
+            const repsPerSet =
+              loggedReps.length > 0
+                ? loggedReps
+                : fallbackReps.length > 0
+                  ? fallbackReps
+                  : Array.from(
+                      { length: merged.targetSets ?? 2 },
+                      () => merged.targetRepsMin ?? 10,
+                    );
+            const liveLoad: ExerciseLoad = {
+              weight: activeWeight,
+              repsPerSet,
+              difficulty: merged.difficulty,
+              painStatus: merged.painStatus,
+              symptoms: {
+                pain: Boolean(session.painReported),
+                dizziness: Boolean(session.dizzinessReported),
+                shortnessOfBreath: Boolean(session.shortnessOfBreathReported),
+              },
+            };
+            const priorLoads = recentLoadsRef.current[exerciseKey] ?? [];
+            const recommendation = recommendWeight({
+              loads: [liveLoad, ...priorLoads],
+              targetSets: merged.targetSets ?? 1,
+              targetRepsMin: merged.targetRepsMin ?? 10,
+              targetRepsMax: merged.targetRepsMax ?? merged.targetRepsMin ?? 10,
+              increment: 5,
+            });
+            setRecommendations((prev) => ({
+              ...prev,
+              [exerciseKey]: {
+                id: prev[exerciseKey]?.id ?? newRecommendationId(),
+                recommendation,
+                reason: recommendation.reason,
+              },
+            }));
+          }
+        }
       } catch (e) {
         setError(e instanceof Error ? e.message : "Could not save your entry.");
       }
@@ -394,21 +464,33 @@ export function useWorkoutSession(input: {
     await Promise.allSettled(
       exercises
         .filter((e) => typeof e.weightUsed === "number" && e.weightUsed >= 0)
-        .map((e) =>
-          upsertExerciseStat(
+        .map((e) => {
+          const loggedReps = sets
+            .filter((s) => s.exerciseKey === e.exerciseKey && s.completed)
+            .sort((a, b) => a.setNumber - b.setNumber)
+            .map((s) => s.reps);
+          const fallbackReps = previousReps[e.exerciseKey] ?? [];
+          const repsToSave =
+            loggedReps.length > 0
+              ? loggedReps
+              : fallbackReps.length > 0
+                ? fallbackReps
+                : undefined;
+          return upsertExerciseStat(
             { db },
             {
               uid,
               exerciseKey: e.exerciseKey,
               lastWeight: e.weightUsed as number,
+              ...(repsToSave ? { reps: repsToSave } : {}),
               difficulty: e.difficulty,
               lastWorkoutDate: session.scheduledDate,
               now,
             },
-          ),
-        ),
+          );
+        }),
     );
-  }, [patchSession, session, db, uid, exercises]);
+  }, [patchSession, session, db, uid, exercises, sets, previousReps]);
 
   const decide = useCallback(
     async (
@@ -430,6 +512,7 @@ export function useWorkoutSession(input: {
     setSession(null);
     setExercises([]);
     setSets([]);
+    setPreviousReps({});
     setRecommendations({});
     setError(null);
     void restore();
@@ -448,6 +531,7 @@ export function useWorkoutSession(input: {
     session,
     exercises,
     sets,
+    previousReps,
     error: error ?? restoreError,
     start,
     patchExercise,

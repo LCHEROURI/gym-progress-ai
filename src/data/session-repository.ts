@@ -106,6 +106,26 @@ export async function fetchPreviousWeights(
   return out;
 }
 
+/** Last performed reps per set per exercise key, from the derived stats cache. */
+export async function fetchPreviousReps(
+  ctx: RepoCtx,
+  uid: string,
+  keys: string[],
+): Promise<Record<string, number[]>> {
+  const out: Record<string, number[]> = {};
+  await Promise.all(
+    keys.map(async (key) => {
+      const snap = await getDoc(doc(ctx.db, `users/${uid}/exerciseStats/${key}`));
+      const data = snap.data() as { lastReps?: unknown } | undefined;
+      out[key] =
+        data && Array.isArray(data.lastReps)
+          ? data.lastReps.filter((r): r is number => typeof r === "number")
+          : [];
+    }),
+  );
+  return out;
+}
+
 /** Creates the session + one exercise doc per template exercise in one atomic batch. */
 export async function startSession(
   ctx: RepoCtx,
@@ -292,7 +312,7 @@ export async function upsertExerciseStat(
     uid: string;
     exerciseKey: string;
     lastWeight: number;
-    reps?: number;
+    reps?: number | number[];
     difficulty?: "easy" | "good" | "hard" | null;
     highestWeight?: number;
     totalSessions?: number;
@@ -332,7 +352,9 @@ export async function upsertExerciseStat(
       : (typeof existing.totalSessions === "number" ? existing.totalSessions : 1);
   const lastReps =
     input.reps !== undefined
-      ? [input.reps]
+      ? Array.isArray(input.reps)
+        ? input.reps
+        : [input.reps]
       : Array.isArray(existing.lastReps)
         ? existing.lastReps
         : [];

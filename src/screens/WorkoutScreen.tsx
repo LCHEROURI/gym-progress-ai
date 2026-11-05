@@ -5,11 +5,14 @@ import RecommendationCard from "../coach/RecommendationCard";
 import type { Recommendation } from "../coach/progression";
 import RestTimer from "../workout/RestTimer";
 import type { SyncState } from "../data/useSyncStatus";
+import type { LoggedSet } from "../workout/summary";
 
 interface Props {
   template: WorkoutTemplate;
   session: WorkoutSession;
   exercises: ExerciseSession[];
+  sets?: LoggedSet[];
+  previousReps?: Record<string, number[]>;
   syncState: SyncState;
   error: string | null;
   onPatchExercise: (exerciseKey: string, patch: Partial<ExerciseSession>) => void;
@@ -66,6 +69,8 @@ export default function WorkoutScreen(props: Props) {
               key={e.exerciseKey}
               exercise={e}
               templateExercise={templateExercise}
+              exerciseSets={props.sets?.filter((s) => s.exerciseKey === e.exerciseKey)}
+              previousReps={props.previousReps?.[e.exerciseKey]}
               onPatch={(patch) => props.onPatchExercise(e.exerciseKey, patch)}
               onLogSet={(set) => props.onLogSet(e.exerciseKey, set)}
               onSetLogged={() => setResting(e.exerciseKey)}
@@ -86,6 +91,8 @@ export default function WorkoutScreen(props: Props) {
 function ExerciseCard(props: {
   exercise: ExerciseSession;
   templateExercise: WorkoutTemplate["exercises"][number];
+  exerciseSets?: LoggedSet[];
+  previousReps?: number[];
   onPatch: (patch: Partial<ExerciseSession>) => void;
   onLogSet: (set: WorkoutSet) => void;
   onSetLogged: () => void;
@@ -97,6 +104,12 @@ function ExerciseCard(props: {
   const isResistance = t.kind === "resistance";
   const step = props.increment ?? 5;
   const unit = (e.weightUnit ?? "lb").toUpperCase();
+  const [repInputs, setRepInputs] = useState<Record<number, string>>({});
+  const [appliedReps, setAppliedReps] = useState<number | null>(null);
+  const lastReps =
+    props.previousReps && props.previousReps.length > 0
+      ? props.previousReps
+      : (props.suggestion?.recommendation.previousReps ?? []);
 
   return (
     <li className={`exerciseCard${e.completed ? " isComplete" : ""}`}>
@@ -112,7 +125,10 @@ function ExerciseCard(props: {
       {isResistance && (
         <>
           <p className="lastTime">
-            LAST: {e.previousWeight !== null ? `${e.previousWeight} ${unit}` : "—"}
+            LAST:{" "}
+            {e.previousWeight !== null
+              ? `${e.previousWeight} ${unit}${lastReps.length > 0 ? ` · ${lastReps.join(", ")} REPS` : ""}`
+              : "—"}
           </p>
           <div className="weightRow" role="group" aria-label="Today's weight">
             <button
@@ -142,27 +158,44 @@ function ExerciseCard(props: {
               +
             </button>
           </div>
-          {Array.from({ length: e.targetSets ?? 0 }, (_, i) => (
-            <label key={i} className="setRow">
-              SET {i + 1}
-              <input
-                type="number"
-                inputMode="numeric"
-                aria-label={`Set ${i + 1} reps`}
-                onChange={(ev) => {
-                  props.onLogSet({
-                    setNumber: i + 1,
-                    weight: e.weightUsed ?? 0,
-                    reps: Number(ev.target.value) || 0,
-                    completed: true,
-                    createdAt: new Date(),
-                  });
-                  props.onSetLogged();
-                }}
-              />
-              reps
-            </label>
-          ))}
+          {Array.from({ length: e.targetSets ?? 0 }, (_, i) => {
+            const setNum = i + 1;
+            const loggedSet = props.exerciseSets?.find((s) => s.setNumber === setNum);
+            const lastRep = lastReps[i] ?? lastReps[lastReps.length - 1];
+            const fallbackValue =
+              appliedReps !== null
+                ? String(appliedReps)
+                : loggedSet !== undefined
+                  ? String(loggedSet.reps)
+                  : typeof lastRep === "number"
+                    ? String(lastRep)
+                    : "";
+            const inputValue = repInputs[setNum] !== undefined ? repInputs[setNum] : fallbackValue;
+            return (
+              <label key={i} className="setRow">
+                SET {setNum}
+                <input
+                  type="number"
+                  inputMode="numeric"
+                  aria-label={`Set ${setNum} reps`}
+                  value={inputValue}
+                  onChange={(ev) => {
+                    const raw = ev.target.value;
+                    setRepInputs((prev) => ({ ...prev, [setNum]: raw }));
+                    props.onLogSet({
+                      setNumber: setNum,
+                      weight: e.weightUsed ?? 0,
+                      reps: Number(raw) || 0,
+                      completed: true,
+                      createdAt: new Date(),
+                    });
+                    props.onSetLogged();
+                  }}
+                />
+                reps
+              </label>
+            );
+          })}
         </>
       )}
       <div className="feelRow" role="group" aria-label="How did it feel?">
@@ -195,6 +228,10 @@ function ExerciseCard(props: {
           reason={props.suggestion.reason}
           onUse={(w) => {
             props.onPatch({ weightUsed: w });
+            if (typeof props.suggestion?.recommendation.suggestedReps === "number") {
+              setAppliedReps(props.suggestion.recommendation.suggestedReps);
+              setRepInputs({});
+            }
             props.onDecide?.({ accepted: true, finalWeightChosen: w });
           }}
           onKeep={() =>

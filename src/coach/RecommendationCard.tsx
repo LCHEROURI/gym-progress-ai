@@ -26,6 +26,15 @@ export default function RecommendationCard({
       ) : (
         <>
           <p className="suggestedWeight">{r.suggestedWeight} lb</p>
+          {typeof r.suggestedReps === "number" && r.suggestedReps > 0 && (
+            <p className="suggestedReps">
+              TARGET: {r.targetSets ?? 2} × {r.suggestedReps} REPS
+              {r.previousReps && r.previousReps.length > 0
+                ? ` · LAST: ${r.previousReps.join(", ")} REPS`
+                : ""}
+              {r.lastDifficulty ? ` (${r.lastDifficulty.toUpperCase()})` : ""}
+            </p>
+          )}
           <p className="whyLabel">WHY?</p>
           <blockquote className="whyText">{reason}</blockquote>
         </>

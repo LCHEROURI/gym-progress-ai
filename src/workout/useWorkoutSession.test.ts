@@ -370,6 +370,41 @@ describe("useWorkoutSession + coach wiring", () => {
     );
   });
 
+  it("populates previousReps from history and updates coach weight/rep advice dynamically when difficulty is rated", async () => {
+    mocks.fetchRecentDetails.mockResolvedValueOnce([recentDetail(70, [10, 10])]);
+    const { result } = render();
+    await settleInitialRestore();
+    await act(async () => {
+      await result.current.start();
+    });
+    expect(result.current.previousReps?.["leg-press"]).toEqual([10, 10]);
+
+    // Rating the exercise as "hard" updates the recommendation to keep 70 lb for 2 × 10 smooth reps
+    await act(async () => {
+      await result.current.patchExercise("leg-press", { difficulty: "hard" });
+    });
+    expect(result.current.recommendations["leg-press"]?.recommendation).toMatchObject({
+      action: "keep",
+      suggestedWeight: 70,
+      suggestedReps: 10,
+      lastDifficulty: "hard",
+    });
+    expect(result.current.recommendations["leg-press"]?.reason).toContain(
+      "73-year-old building muscle mass",
+    );
+
+    // Rating the exercise as "easy" updates the recommendation to increase to 75 lb for 2 × 10 controlled reps
+    await act(async () => {
+      await result.current.patchExercise("leg-press", { difficulty: "easy" });
+    });
+    expect(result.current.recommendations["leg-press"]?.recommendation).toMatchObject({
+      action: "increase",
+      suggestedWeight: 75,
+      suggestedReps: 10,
+      lastDifficulty: "easy",
+    });
+  });
+
   it('bounds render count when parent passes re-created template and profile objects (regression 890bee0)', async () => {
     let renderCount = 0;
     const db = {} as never;

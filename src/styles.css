@@ -716,6 +716,14 @@ input {
   color: var(--green);
 }
 
+.suggestedReps {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+}
+
 .whyLabel {
   margin: 0;
   font-size: 13px;

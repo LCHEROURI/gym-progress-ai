@@ -88,4 +88,25 @@ describe("RecommendationCard", () => {
     expect(screen.queryByRole("button", { name: /USE/ })).toBeNull();
     expect(screen.getByRole("button", { name: "KEEP CURRENT WEIGHT" })).toBeEnabled();
   });
+
+  it("displays target sets and reps plus last performed reps and difficulty when present", () => {
+    render(
+      <RecommendationCard
+        recommendation={{
+          ...suggestion,
+          targetSets: 2,
+          suggestedReps: 10,
+          previousReps: [10, 10],
+          lastDifficulty: "good",
+        }}
+        reason="You completed 10, 10 reps at 70 lb and rated the resistance as comfortable."
+        onUse={vi.fn()}
+        onKeep={vi.fn()}
+        onChooseOther={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("TARGET: 2 × 10 REPS · LAST: 10, 10 REPS (GOOD)"),
+    ).toBeInTheDocument();
+  });
 });
