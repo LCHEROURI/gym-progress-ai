@@ -5,7 +5,7 @@ const mocks = vi.hoisted(() => ({
   saveWeeklyReport: vi.fn(async () => {}),
   weeklyObservations: vi.fn(async () => ({
     aiObservations: ["You completed all scheduled workouts this week."],
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     promptVersion: "weekly-observations-v1",
   })),
 }));

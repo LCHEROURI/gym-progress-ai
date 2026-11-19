@@ -43,7 +43,7 @@ describe("weeklyObservations", () => {
     });
     const out = await weeklyObservations({} as never, report);
     expect(out.aiObservations).toEqual(["Great adherence.", "Leg press climbed."]);
-    expect(out.model).toBe("gemini-2.5-flash");
+    expect(out.model).toBe("gemini-3.8-flash");
   });
 
   it("falls back to the deterministic voice on failure", async () => {

@@ -130,11 +130,11 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 ## Model and prompt configuration
 
 - Client model default lives in one place: `DEFAULT_MODEL` in
-  `src/coach/explain.ts` (`gemini-2.5-flash`), re-exported into `chat.ts` and
+  `src/coach/explain.ts` (`gemini-3.8-flash`), re-exported into `chat.ts` and
   `reports/observations.ts`. There is no environment override on the client
   path; the comment above the constant records that as a future change.
 - The server keeps its own default in `functions/src/index.ts`:
-  `process.env.GEMINI_MODEL || "gemini-2.5-flash"`, with a comment requiring
+  `process.env.GEMINI_MODEL || "gemini-3.8-flash"`, with a comment requiring
   the two to stay in sync. A single shared table (`functions/src/ai/models.ts`
   in earlier drafts) does not exist.
 - Prompts are versioned modules in `src/ai/prompts/` (`coach-chat.ts`,

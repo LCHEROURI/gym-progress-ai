@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => ({
     text: "You completed 1 workout this month.",
     source: "model",
     diagnostic: null,
-    model: "gemini-2.5-flash",
+    model: "gemini-3.8-flash",
     promptVersion: "coach-chat-v3",
   })),
 }));

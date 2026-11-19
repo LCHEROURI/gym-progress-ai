@@ -61,7 +61,7 @@ describe("askCoach", () => {
     expect(out.text).toBe("You completed 1 workout this month.");
     expect(out.source).toBe("model");
     expect(out.diagnostic).toBeNull();
-    expect(out.model).toBe("gemini-2.5-flash");
+    expect(out.model).toBe("gemini-3.8-flash");
     expect(out.promptVersion).toBe("coach-chat-v3");
     const prompt = mocks.sendMessage.mock.calls[0][0] as string;
     expect(prompt).toContain('"totalWorkouts": 1');
@@ -139,7 +139,7 @@ describe("askCoach · labeled fallback and safe diagnostics", () => {
         detail: expect.any(String),
         code: "Error",
         hint: "429 RESOURCE_EXHAUSTED: quota exceeded",
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         promptVersion: "coach-chat-v3",
       });
     } finally {

@@ -77,7 +77,7 @@ export const SUNDAY_CRON = "0 12 * * 0";
 export const REPORT_TIME_ZONE = "America/New_York";
 
 // Keep the default in sync with DEFAULT_MODEL in src/coach/explain.ts.
-const MODEL = process.env.GEMINI_MODEL || "gemini-2.5-flash";
+const MODEL = process.env.GEMINI_MODEL || "gemini-3.8-flash";
 
 /** Firestore answers an unbounded users read in a single batch, so scanning
  * the collection in one call holds every user document in memory at once and
