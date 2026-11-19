@@ -98,11 +98,14 @@ export async function askCoach(input: {
     };
   } catch (error) {
     const diagnostic = classifyCoachError(error, appCheckStatus());
-    // Structured and safe by construction: category + fixed copy only. The
-    // raw error is never logged or shown (see src/coach/diagnostics.ts).
+    // Structured and safe by construction: category + fixed copy, the error's
+    // own code, and a sanitized hint. The raw error is never logged or shown
+    // (see src/coach/diagnostics.ts).
     console.warn("[coach] Gemini call failed", {
       category: diagnostic.category,
       detail: diagnostic.detail,
+      ...(diagnostic.code ? { code: diagnostic.code } : {}),
+      ...(diagnostic.hint ? { hint: diagnostic.hint } : {}),
       model,
       promptVersion: PROMPT_VERSION,
     });

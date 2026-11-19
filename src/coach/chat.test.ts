@@ -100,16 +100,18 @@ describe("askCoach · labeled fallback and safe diagnostics", () => {
       expect(out.source).toBe("deterministic");
       expect(out.diagnostic?.category).toBe("quota");
       expect(out.diagnostic?.detail).toContain("quota");
-      // The raw provider payload must never reach the answer or the logs.
-      expect(JSON.stringify(out)).not.toContain("RESOURCE_EXHAUSTED");
+      // The sanitized hint carries the refusal reason, but the project id and
+      // anything credential-like must never reach the answer or the logs.
+      expect(out.diagnostic?.hint).toBe("429 RESOURCE_EXHAUSTED: quota exceeded");
       expect(JSON.stringify(out)).not.toContain("gym-progress-ai-lcherouri");
-      expect(JSON.stringify(warn.mock.calls)).not.toContain("RESOURCE_EXHAUSTED");
       expect(JSON.stringify(warn.mock.calls)).not.toContain("gym-progress-ai-lcherouri");
       expect(warn).toHaveBeenCalledOnce();
       expect(warn.mock.calls[0]?.[0]).toBe("[coach] Gemini call failed");
       expect(warn.mock.calls[0]?.[1]).toEqual({
         category: "quota",
         detail: expect.any(String),
+        code: "Error",
+        hint: "429 RESOURCE_EXHAUSTED: quota exceeded",
         model: "gemini-2.5-flash",
         promptVersion: "coach-chat-v3",
       });
@@ -138,6 +140,41 @@ describe("askCoach · labeled fallback and safe diagnostics", () => {
     const out = await askCoach({ app: {} as never, question: "hi", context });
     expect(out.source).toBe("deterministic");
     expect(out.diagnostic?.category).toBe("app-check");
+  });
+
+  it("surfaces the provider error code when the refusal matches no known category", async () => {
+    mocks.startChat.mockReturnValueOnce({
+      sendMessage: vi.fn(async () => {
+        const err = new Error("Request failed for an unrecognized reason");
+        (err as { code?: string }).code = "ai/request-error";
+        throw err;
+      }),
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const out = await askCoach({ app: {} as never, question: "hi", context });
+      expect(out.source).toBe("deterministic");
+      expect(out.diagnostic?.category).toBe("unknown");
+      expect(out.diagnostic?.detail).toBe("The AI service refused the request.");
+      expect(out.diagnostic?.code).toBe("ai/request-error");
+      expect(out.diagnostic?.hint).toBe("Request failed for an unrecognized reason");
+      expect(warn.mock.calls[0]?.[1]).toMatchObject({ code: "ai/request-error" });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("drops the hint when the error message contains credential-like text", async () => {
+    mocks.startChat.mockReturnValueOnce({
+      sendMessage: vi.fn(async () => {
+        throw new Error("Request failed: API key AIzaSyABC123 rejected");
+      }),
+    });
+    const out = await askCoach({ app: {} as never, question: "hi", context });
+    expect(out.source).toBe("deterministic");
+    expect(out.diagnostic?.hint).toBeUndefined();
+    expect(out.diagnostic?.code).toBe("Error");
+    expect(JSON.stringify(out)).not.toContain("AIzaSyABC123");
   });
 });
 

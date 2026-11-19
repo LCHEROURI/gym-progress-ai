@@ -54,6 +54,10 @@ export default function CoachScreen({
                   Coach unavailable — answer computed from your recorded data.
                 </span>
                 <span className="chatFallbackDetail">{message.diagnostic.detail}</span>
+                <span className="chatErrorCode">
+                  Error code: {message.diagnostic.code ?? "unknown"}
+                  {message.diagnostic.hint ? ` — ${message.diagnostic.hint}` : ""}
+                </span>
               </>
             )}
             {message.text}
