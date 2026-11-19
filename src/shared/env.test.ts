@@ -46,7 +46,7 @@ describe("parseEnv", () => {
 
   it("treats an empty VITE_APP_CHECK_SITE_KEY as unset, not as a bad key", () => {
     // Vite hands through empty strings from a commented-out .env line; feeding
-    // "" to ReCaptchaV3Provider would register a provider that can never mint
+    // "" to ReCaptchaEnterpriseProvider would register a provider that can never mint
     // a token.
     expect(
       parseEnv({ ...complete, VITE_APP_CHECK_SITE_KEY: "" }).appCheckSiteKey,

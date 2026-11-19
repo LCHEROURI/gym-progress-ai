@@ -1,5 +1,5 @@
 /**
- * App Check initialization.
+ * App Check initialization (reCAPTCHA Enterprise / Fraud Defense).
  *
  * Why this exists: the client calls Gemini directly through `firebase/ai`
  * (see src/coach/chat.ts), which means any browser holding the web app config
@@ -10,8 +10,8 @@
  *
  *  1. **Never block boot.** A security control that can take the app down is
  *     worse than the threat it mitigates. Every failure path here resolves,
- *     none of them throw; a missing site key or a blocked reCAPTCHA degrades to
- *     "no token" and the app runs exactly as it did before.
+ *     none of them throw; a missing site key or a blocked reCAPTCHA Enterprise
+ *     script degrades to "no token" and the app runs exactly as it did before.
  *
  *  2. **Opt in, not required.** Without `VITE_APP_CHECK_SITE_KEY` there is no
  *     provider to register, so nothing is attempted. Local dev, the emulator
@@ -44,7 +44,8 @@ export function appCheckStatus(): AppCheckStatus {
 }
 
 /**
- * Registers the reCAPTCHA v3 provider and begins automatic token refresh.
+ * Registers the reCAPTCHA Enterprise (Fraud Defense) provider and begins
+ * automatic token refresh.
  *
  * Returns the outcome instead of throwing. `firebase/app-check` is imported
  * dynamically so the SDK stays out of the signed-out landing chunk — the same
@@ -67,9 +68,11 @@ export async function initAppCheck(
   }
 
   try {
-    const { initializeAppCheck, ReCaptchaV3Provider } = await import("firebase/app-check");
+    const { initializeAppCheck, ReCaptchaEnterpriseProvider } = await import(
+      "firebase/app-check"
+    );
     initializeAppCheck(app, {
-      provider: new ReCaptchaV3Provider(env.appCheckSiteKey),
+      provider: new ReCaptchaEnterpriseProvider(env.appCheckSiteKey),
       // Refresh ahead of expiry so a long-lived PWA tab does not start failing
       // its first Firestore write after an hour of being open on the gym floor.
       isTokenAutoRefreshEnabled: true,

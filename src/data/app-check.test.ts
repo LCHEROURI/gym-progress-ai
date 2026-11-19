@@ -4,15 +4,17 @@ import { appCheckStatus, initAppCheck } from "./app-check";
 import type { FirebaseApp } from "firebase/app";
 
 const initializeAppCheck = vi.fn();
-const v3Provider = vi.fn();
+const enterpriseProvider = vi.fn();
+
+class MockReCaptchaEnterpriseProvider {
+  constructor(public siteKey: string) {
+    enterpriseProvider(siteKey);
+  }
+}
 
 vi.mock("firebase/app-check", () => ({
   initializeAppCheck: (...args: unknown[]) => initializeAppCheck(...args),
-  ReCaptchaV3Provider: class {
-    constructor(public siteKey: string) {
-      v3Provider(siteKey);
-    }
-  },
+  ReCaptchaEnterpriseProvider: MockReCaptchaEnterpriseProvider,
 }));
 
 const app = { name: "test-app" } as unknown as FirebaseApp;
@@ -21,7 +23,7 @@ const withKey = { appCheckSiteKey: "site-key", useEmulator: false };
 
 beforeEach(() => {
   initializeAppCheck.mockClear();
-  v3Provider.mockClear();
+  enterpriseProvider.mockClear();
 });
 
 afterEach(() => {
@@ -34,12 +36,15 @@ describe("initAppCheck", () => {
     expect(initializeAppCheck).not.toHaveBeenCalled();
   });
 
-  it("registers the reCAPTCHA v3 provider when a site key is present", async () => {
+  it("registers the reCAPTCHA Enterprise (Fraud Defense) provider when a site key is present", async () => {
     expect(await initAppCheck(app, withKey)).toBe("active");
-    expect(v3Provider).toHaveBeenCalledWith("site-key");
+    expect(enterpriseProvider).toHaveBeenCalledWith("site-key");
     expect(initializeAppCheck).toHaveBeenCalledWith(
       app,
-      expect.objectContaining({ isTokenAutoRefreshEnabled: true }),
+      expect.objectContaining({
+        provider: expect.any(MockReCaptchaEnterpriseProvider),
+        isTokenAutoRefreshEnabled: true,
+      }),
     );
   });
 

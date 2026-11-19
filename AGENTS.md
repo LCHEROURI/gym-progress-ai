@@ -182,7 +182,7 @@ Gym Progress AI — a mobile-first personal gym companion. One application per t
 ### 5. Security requirements
 
 - API credentials live in Google Cloud Secret Manager — never client code, `.env.local`, git, or logs.
-- Auth is checked before any quota- or history-bearing work. **App Check is initialized on the client** (`src/data/app-check.ts`, reCAPTCHA v3, opt-in via `VITE_APP_CHECK_SITE_KEY`, awaited in `initAuth` before Auth and Firestore are constructed). Firestore, Auth, and the client-side Gemini path in `src/coach` are therefore covered whenever the site key is configured and the token is being refreshed. Two deliberate exceptions, both written down in code: the emulator (does not implement App Check) and `/__boot` (the pre-React probe cannot hold a token — see `reportBootFailure` in `functions/src/index.ts`). Adding a new public endpoint means deciding which side of that line it falls on, not inheriting a default.
+- Auth is checked before any quota- or history-bearing work. **App Check is initialized on the client** (`src/data/app-check.ts`, reCAPTCHA Enterprise / Fraud Defense, opt-in via `VITE_APP_CHECK_SITE_KEY`, awaited in `initAuth` before Auth and Firestore are constructed). Firestore, Auth, and the client-side Gemini path in `src/coach` are therefore covered whenever the site key is configured and the token is being refreshed. Two deliberate exceptions, both written down in code: the emulator (does not implement App Check) and `/__boot` (the pre-React probe cannot hold a token — see `reportBootFailure` in `functions/src/index.ts`). Adding a new public endpoint means deciding which side of that line it falls on, not inheriting a default.
 - App Check initialization must never reject. `initAuth` awaits it, so a throwing initializer would take down sign-in for every user; a blocked reCAPTCHA, an ad blocker, or a bad site key degrades to "no token" with a `console.warn`. This is a security control that is allowed to fail open, on purpose, and the tests assert it.
 - Firebase Authentication with Google sign-in; no anonymous access to workout records.
 - Analytics are optional and off by default; sensitive health-style notes never enter analytics events.
@@ -218,7 +218,7 @@ AI never writes `weightUsed`, never changes the workout plan, never marks sets c
 ### Stack and commands
 
 - React 19 + TypeScript + Vite; Firebase Web SDK (Auth, Firestore, optional Messaging); Zod; hand-rolled SVG charts; PWA manifest + service worker.
-- Server: Firebase Cloud Functions (2nd gen) + Gemini via `@google/genai`; client Gemini via `firebase/ai`. App Check (reCAPTCHA v3) covers the client path.
+- Server: Firebase Cloud Functions (2nd gen) + Gemini via `@google/genai`; client Gemini via `firebase/ai`. App Check (reCAPTCHA Enterprise / Fraud Defense) covers the client path.
 - Testing: Vitest + Testing Library + jsdom; `@firebase/rules-unit-testing`.
 
 ```bash
