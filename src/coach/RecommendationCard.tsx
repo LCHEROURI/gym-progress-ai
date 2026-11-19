@@ -1,8 +1,10 @@
+import type { CoachDiagnostic } from "./diagnostics";
 import type { Recommendation } from "./progression";
 
 interface Props {
   recommendation: Recommendation;
   reason: string;
+  diagnostic?: CoachDiagnostic | null;
   onUse: (weight: number) => void;
   onKeep: () => void;
   onChooseOther: () => void;
@@ -11,6 +13,7 @@ interface Props {
 export default function RecommendationCard({
   recommendation: r,
   reason,
+  diagnostic,
   onUse,
   onKeep,
   onChooseOther,
@@ -36,6 +39,18 @@ export default function RecommendationCard({
             </p>
           )}
           <p className="whyLabel">WHY?</p>
+          {diagnostic && (
+            <div className="coachFallback">
+              <p className="coachFallbackLabel">
+                Coach unavailable — explanation computed from your recorded data.
+              </p>
+              <p className="coachFallbackDetail">{diagnostic.detail}</p>
+              <p className="coachErrorCode">
+                Error code: {diagnostic.code ?? "unknown"}
+                {diagnostic.hint ? ` — ${diagnostic.hint}` : ""}
+              </p>
+            </div>
+          )}
           <blockquote className="whyText">{reason}</blockquote>
         </>
       )}

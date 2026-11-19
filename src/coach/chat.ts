@@ -33,6 +33,45 @@ export function deterministicAnswer(context: CoachContext): string {
 }
 
 /**
+ * `@firebase/ai` validates that chat history starts with `user`, strictly
+ * alternates `user` ↔ `model`, and has non-empty parts. Because `sendMessage`
+ * appends the next `user` turn, any failed prior turn that left a dangling
+ * `user` message (or duplicate same-role turns) must be normalized into
+ * complete `user` → `model` pairs before calling `startChat`.
+ */
+function sanitizeChatHistory(
+  history?: CoachMessage[],
+): Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> {
+  const normalized: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
+  for (const m of history ?? []) {
+    const text = m.text.trim();
+    if (!text) continue;
+    const prev = normalized[normalized.length - 1];
+    if (!prev) {
+      if (m.role === "user") {
+        normalized.push({ role: "user", parts: [{ text }] });
+      }
+      continue;
+    }
+    if (m.role === prev.role) {
+      // Consecutive user messages happen when an earlier turn failed before
+      // producing a reply; keep the latest user turn. Ignore duplicate model turns.
+      if (m.role === "user") {
+        normalized[normalized.length - 1] = { role: "user", parts: [{ text }] };
+      }
+      continue;
+    }
+    normalized.push({ role: m.role, parts: [{ text }] });
+  }
+  // Drop any trailing unpaired `user` message so `sendMessage` never creates
+  // two consecutive `user` turns.
+  if (normalized.length > 0 && normalized[normalized.length - 1].role === "user") {
+    normalized.pop();
+  }
+  return normalized;
+}
+
+/**
  * Pipeline steps 4-6: send only the computed facts to Gemini, ask for the
  * interpretation, return it. No facts → the exact insufficient-history line,
  * without calling the model at all.
@@ -63,10 +102,7 @@ export async function askCoach(input: {
     const genAI = getAI(input.app, { backend: new GoogleAIBackend() });
     const gm = getGenerativeModel(genAI, { model, systemInstruction: COACH_SYSTEM });
     const chat = gm.startChat({
-      history: (input.history ?? []).map((m) => ({
-        role: m.role,
-        parts: [{ text: m.text }],
-      })),
+      history: sanitizeChatHistory(input.history),
     });
     const res = await chat.sendMessage(coachPrompt(input.context.facts, input.question));
     const text = res.response.text().trim();

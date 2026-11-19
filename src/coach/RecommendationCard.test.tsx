@@ -109,4 +109,27 @@ describe("RecommendationCard", () => {
       screen.getByText("TARGET: 2 × 10 REPS · LAST: 10, 10 REPS (GOOD)"),
     ).toBeInTheDocument();
   });
+
+  it("labels fallback explanations with safe diagnostics when diagnostic is present", () => {
+    render(
+      <RecommendationCard
+        recommendation={suggestion}
+        reason="You completed all sets at the target repetitions."
+        diagnostic={{
+          category: "app-check",
+          detail:
+            "The request was refused because App Check is not active on this device. The AI provider only accepts requests with a valid App Check token.",
+          code: "fetch-error",
+        }}
+        onUse={vi.fn()}
+        onKeep={vi.fn()}
+        onChooseOther={vi.fn()}
+      />,
+    );
+    expect(
+      screen.getByText("Coach unavailable — explanation computed from your recorded data."),
+    ).toBeInTheDocument();
+    expect(screen.getByText(/App Check is not active on this device/)).toBeInTheDocument();
+    expect(screen.getByText("Error code: fetch-error")).toBeInTheDocument();
+  });
 });
