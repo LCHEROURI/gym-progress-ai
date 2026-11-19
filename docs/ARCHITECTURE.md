@@ -33,7 +33,7 @@ flowchart TB
         Auth["Firebase Auth — Google sign-in"]
         FS[("Firestore — persistent offline cache")]
         Rules["Security rules: default deny, own uid"]
-        AC["App Check — reCAPTCHA v3, opt-in via VITE_APP_CHECK_SITE_KEY"]
+        AC["App Check — reCAPTCHA Enterprise (Fraud Defense), opt-in via VITE_APP_CHECK_SITE_KEY"]
     end
 
     subgraph Server["Cloud Functions (2nd gen) — Gemini via @google/genai"]
@@ -161,7 +161,8 @@ flows answer "I don't have enough workout history yet." instead of inventing.
 - Identity: Firebase Auth on the client; verified ID tokens server-side. Path
   security by `request.auth.uid`; client-supplied uids are ignored.
 - App Check: initialized on the client by `src/data/app-check.ts` (reCAPTCHA
-  v3), awaited inside `initAuth` before Auth and Firestore are constructed so
+  Enterprise / Fraud Defense), awaited inside `initAuth` before Auth and
+  Firestore are constructed so
   the token exists before anything goes over the network. Opt-in — without
   `VITE_APP_CHECK_SITE_KEY` nothing is initialized, and initialization can never
   throw, so an unregistered environment or a blocked reCAPTCHA degrades to "no

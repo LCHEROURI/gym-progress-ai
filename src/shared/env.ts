@@ -33,7 +33,7 @@ const schema = z.object({
   storageBucket: z.string().min(1),
   messagingSenderId: z.string().min(1),
   appId: z.string().min(1),
-  /** reCAPTCHA v3 site key for App Check; absent means "do not initialize". */
+  /** reCAPTCHA Enterprise (Fraud Defense) site key for App Check; absent means "do not initialize". */
   appCheckSiteKey: z.string().min(1).optional(),
   /** Web Push VAPID public key for FCM reminders; absent means push cannot be enabled. */
   fcmVapidKey: z.string().min(1).optional(),
