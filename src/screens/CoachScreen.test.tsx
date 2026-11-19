@@ -72,6 +72,8 @@ describe("CoachScreen", () => {
       diagnostic: {
         category: "quota",
         detail: "The AI quota for this period is used up. Try again later.",
+        code: "ai/quota-exceeded",
+        hint: "quota exceeded",
       },
       model: null,
       promptVersion: null,
@@ -90,6 +92,7 @@ describe("CoachScreen", () => {
     expect(
       screen.getByText("The AI quota for this period is used up. Try again later."),
     ).toBeInTheDocument();
+    expect(screen.getByText("Error code: ai/quota-exceeded — quota exceeded")).toBeInTheDocument();
     expect(
       screen.getByText("You completed 1 workout this month (1 in total)."),
     ).toBeInTheDocument();

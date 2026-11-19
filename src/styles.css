@@ -337,6 +337,14 @@ dd {
   color: var(--muted);
 }
 
+/* Small diagnostic line: the provider's own error code + sanitized hint. */
+.chatErrorCode {
+  display: block;
+  margin: 0;
+  font-size: 14px;
+  color: var(--muted);
+}
+
 .quickRow {
   display: flex;
   flex-wrap: wrap;
