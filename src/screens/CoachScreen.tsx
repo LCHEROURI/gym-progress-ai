@@ -48,6 +48,14 @@ export default function CoachScreen({
       <div className="chatLog" role="log" aria-label="Conversation">
         {turn.messages.map((message, index) => (
           <p key={index} className={message.role === "user" ? "chatUser" : "chatCoach"}>
+            {message.role === "model" && message.diagnostic && (
+              <>
+                <span className="chatFallback">
+                  Coach unavailable — answer computed from your recorded data.
+                </span>
+                <span className="chatFallbackDetail">{message.diagnostic.detail}</span>
+              </>
+            )}
             {message.text}
           </p>
         ))}

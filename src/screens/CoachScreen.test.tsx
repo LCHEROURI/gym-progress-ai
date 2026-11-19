@@ -8,7 +8,13 @@ const mocks = vi.hoisted(() => ({
     sessions: [{ id: "s1", scheduledDate: "2026-09-07", status: "completed" as const }],
     exercises: [],
   })),
-  askCoach: vi.fn(async () => "You completed 1 workout this month."),
+  askCoach: vi.fn<() => Promise<CoachAnswer>>(async () => ({
+    text: "You completed 1 workout this month.",
+    source: "model",
+    diagnostic: null,
+    model: "gemini-2.5-flash",
+    promptVersion: "coach-chat-v3",
+  })),
 }));
 vi.mock("../data/progress", () => ({ fetchProgressFacts: mocks.fetchProgressFacts }));
 vi.mock("../coach/chat", async (importOriginal) => ({
@@ -17,6 +23,7 @@ vi.mock("../coach/chat", async (importOriginal) => ({
 }));
 
 import CoachScreen from "./CoachScreen";
+import type { CoachAnswer } from "../coach/chat";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -56,6 +63,36 @@ describe("CoachScreen", () => {
     await waitFor(() => {
       expect(mocks.askCoach).toHaveBeenCalledOnce();
     });
+  });
+
+  it("labels a fallback answer as computed from recorded data, not Gemini", async () => {
+    mocks.askCoach.mockResolvedValueOnce({
+      text: "You completed 1 workout this month (1 in total).",
+      source: "deterministic",
+      diagnostic: {
+        category: "quota",
+        detail: "The AI quota for this period is used up. Try again later.",
+      },
+      model: null,
+      promptVersion: null,
+    });
+    render(<CoachScreen db={{} as never} uid="u1" app={{} as never} />);
+    await screen.findByText("Workout history ready.");
+
+    fireEvent.change(screen.getByRole("textbox", { name: "Ask the coach" }), {
+      target: { value: "How many workouts did I complete this month?" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "SEND" }));
+
+    expect(
+      await screen.findByText("Coach unavailable — answer computed from your recorded data."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("The AI quota for this period is used up. Try again later."),
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText("You completed 1 workout this month (1 in total)."),
+    ).toBeInTheDocument();
   });
 
   it("suggests workout chips from the last session's effort", async () => {

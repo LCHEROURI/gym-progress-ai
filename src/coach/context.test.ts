@@ -88,3 +88,43 @@ describe("buildCoachContext", () => {
     expect(c.summaryLines.join(" ")).toContain("Chest Press: 50 lb felt good");
   });
 });
+
+describe("buildCoachContext · general intent (open-ended strength questions)", () => {
+  it("carries per-exercise overall progression, recent trend and historical maximum", () => {
+    const c = ctx("general");
+    expect(c.insufficient).toBe(false);
+    // Totals remain, but the model must also receive the per-exercise facts.
+    expect(c.facts).toMatchObject({
+      totalWorkouts: 3,
+      exercises: [
+        {
+          exerciseKey: "chest-press",
+          exerciseName: "Chest Press",
+          startingWeight: 50,
+          currentWeight: 50,
+          recentTrend: "flat",
+          highestWeight: 50,
+          totalSessions: 2,
+        },
+        {
+          exerciseKey: "leg-press",
+          exerciseName: "Leg Press",
+          startingWeight: 70,
+          currentWeight: 75,
+          recentTrend: "up",
+          highestWeight: 75,
+          totalSessions: 3,
+        },
+      ],
+    });
+  });
+
+  it("keeps a useful deterministic fallback for general questions", () => {
+    const c = ctx("general");
+    const lines = c.summaryLines.join(" ");
+    expect(lines).toContain("You completed 3 workouts");
+    expect(lines).toContain("Leg Press: 70 lb → 75 lb over 3 sessions");
+    expect(lines).toContain("recent trend up");
+    expect(lines).toContain("historical max 75 lb");
+  });
+});

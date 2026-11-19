@@ -277,3 +277,13 @@ describe("confirmation helpers", () => {
     expect(isConfirmationDecline("how many workouts")).toBe(false);
   });
 });
+
+describe("classifyQuestion · open-ended strength questions", () => {
+  it("routes the doubling-strength repro question to the general intent", () => {
+    // Repro: the general intent is the only path that can answer it, so its
+    // context must carry the per-exercise facts (see context.test.ts).
+    expect(
+      classify("What kind of weights would you put me on in order to double my strength in two months?"),
+    ).toMatchObject({ intent: "general", exerciseKey: null });
+  });
+});
