@@ -9,7 +9,7 @@ import { appCheckStatus } from "../data/app-check";
 import { classifyCoachError, type CoachDiagnostic } from "./diagnostics";
 
 /** Resolved from settings/Remote Config later; one place to change (AGENTS.md). */
-export const DEFAULT_MODEL = "gemini-2.5-flash";
+export const DEFAULT_MODEL = "gemini-3.8-flash";
 
 export type ExplanationSource = "model" | "deterministic";
 

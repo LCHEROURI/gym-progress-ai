@@ -34,7 +34,7 @@ describe("classifyCoachError", () => {
 
   it("classifies model provisioning errors", () => {
     const d = classifyCoachError(
-      new Error("404 Not Found: models/gemini-2.5-flash is not enabled"),
+      new Error("404 Not Found: models/gemini-3.8-flash is not enabled"),
       "active",
     );
     expect(d.category).toBe("model");
@@ -140,7 +140,7 @@ describe("classifyCoachError", () => {
   });
 
   it("classifies App Check refusals even when a long URL prefix pushes the reason past 300 chars", () => {
-    const longUrl = `https://firebasevertexai.googleapis.com/v1beta/projects/${"a".repeat(260)}/models/gemini-2.5-flash:generateContent`;
+    const longUrl = `https://firebasevertexai.googleapis.com/v1beta/projects/${"a".repeat(260)}/models/gemini-3.8-flash:generateContent`;
     const err = {
       code: "fetch-error",
       name: "FirebaseError",

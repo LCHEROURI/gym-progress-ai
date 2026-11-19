@@ -23,7 +23,7 @@ describe("explainSuggestion", () => {
     expect(out.reason).toBe("Your legs are ready for five more pounds.");
     expect(out.source).toBe("model");
     expect(out.diagnostic).toBeNull();
-    expect(out.model).toBe("gemini-2.5-flash");
+    expect(out.model).toBe("gemini-3.8-flash");
   });
 
   it("falls back to the deterministic reason with safe diagnostics and warning on failure", async () => {
@@ -49,7 +49,7 @@ describe("explainSuggestion", () => {
         detail: expect.any(String),
         code: "Error",
         hint: "429 RESOURCE_EXHAUSTED: quota exceeded",
-        model: "gemini-2.5-flash",
+        model: "gemini-3.8-flash",
         promptVersion: "weight-explanation-v2",
       });
     } finally {
