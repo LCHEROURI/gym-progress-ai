@@ -765,6 +765,31 @@ input {
   color: var(--muted);
 }
 
+.coachFallback {
+  display: grid;
+  gap: 4px;
+}
+
+.coachFallbackLabel {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.coachFallbackDetail {
+  margin: 0;
+  font-size: 15px;
+  color: var(--muted);
+}
+
+.coachErrorCode {
+  margin: 0;
+  font-size: 13px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+  color: var(--muted);
+}
+
 .safetyMessage {
   margin: 0;
   padding: 10px 12px;

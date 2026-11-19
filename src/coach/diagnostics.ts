@@ -114,8 +114,9 @@ export function classifyCoachError(
   error: unknown,
   appCheck: AppCheckStatus,
 ): CoachDiagnostic {
-  const message = errorMessage(error).slice(0, 300).toLowerCase();
+  const message = errorMessage(error).slice(0, 1000).toLowerCase();
   const code = errorCode(error) ?? "unknown";
+  const normalizedCode = code.toLowerCase();
   const hint = safeHint(error);
 
   const base: CoachDiagnostic = { category: "unknown", detail: DETAILS.unknown, code };
@@ -133,7 +134,12 @@ export function classifyCoachError(
     }
     return { ...base, category: "auth", detail: DETAILS.auth };
   }
-  if (/not found|404|unprovisioned|not enabled|unsupported model|unknown model|no model/.test(message)) {
+  if (
+    /api-not-enabled|no-model/.test(normalizedCode) ||
+    /not found|404|unprovisioned|not enabled|unsupported model|unknown model|no model/.test(
+      message,
+    )
+  ) {
     return { ...base, category: "model", detail: DETAILS.model };
   }
   if (/503|502|500|unavailable|backend|endpoint|internal/.test(message)) {

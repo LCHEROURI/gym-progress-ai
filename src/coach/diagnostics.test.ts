@@ -114,4 +114,40 @@ describe("classifyCoachError", () => {
     expect(JSON.stringify(d)).not.toContain("gym-progress-ai-lcherouri");
     expect(JSON.stringify(d)).not.toContain("example.com");
   });
+
+  it("classifies Firebase AI api-not-enabled and no-model error codes as model", () => {
+    const apiNotEnabled = classifyCoachError(
+      {
+        code: "api-not-enabled",
+        name: "FirebaseError",
+        message:
+          "The Firebase AI SDK requires the Firebase AI API ('firebasevertexai.googleapis.com') to be enabled in your Firebase project.",
+      },
+      "disabled",
+    );
+    expect(apiNotEnabled.category).toBe("model");
+    expect(apiNotEnabled.code).toBe("api-not-enabled");
+
+    const noModel = classifyCoachError(
+      {
+        code: "AI/no-model",
+        name: "FirebaseError",
+        message: "Must provide a model name.",
+      },
+      "active",
+    );
+    expect(noModel.category).toBe("model");
+  });
+
+  it("classifies App Check refusals even when a long URL prefix pushes the reason past 300 chars", () => {
+    const longUrl = `https://firebasevertexai.googleapis.com/v1beta/projects/${"a".repeat(260)}/models/gemini-2.5-flash:generateContent`;
+    const err = {
+      code: "fetch-error",
+      name: "FirebaseError",
+      message: `AI: Error fetching from ${longUrl}: [401 Unauthorized] Firebase App Check token is invalid. (AI/fetch-error)`,
+    };
+    const d = classifyCoachError(err, "disabled");
+    expect(d.category).toBe("app-check");
+    expect(d.code).toBe("fetch-error");
+  });
 });

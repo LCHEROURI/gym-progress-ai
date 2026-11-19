@@ -79,6 +79,33 @@ describe("askCoach", () => {
     expect(out.source).toBe("deterministic");
     expect(out.diagnostic?.category).toBe("network");
   });
+
+  it("sanitizes malformed chat history before calling startChat", async () => {
+    mocks.sendMessage.mockResolvedValueOnce({
+      response: { text: () => "Keep steady at 70 lb." },
+    });
+    mocks.startChat.mockReturnValueOnce({ sendMessage: mocks.sendMessage });
+    await askCoach({
+      app: {} as never,
+      question: "What next?",
+      context,
+      history: [
+        { role: "model", text: "Orphan leading model reply" },
+        { role: "user", text: "   " },
+        { role: "user", text: "First question" },
+        { role: "user", text: "Second question after failed turn" },
+        { role: "model", text: "Answer to second question" },
+        { role: "model", text: "Duplicate model turn" },
+        { role: "user", text: "Dangling trailing user turn" },
+      ],
+    });
+    expect(mocks.startChat).toHaveBeenCalledWith({
+      history: [
+        { role: "user", parts: [{ text: "Second question after failed turn" }] },
+        { role: "model", parts: [{ text: "Answer to second question" }] },
+      ],
+    });
+  });
 });
 
 const REPRO_QUESTION =
