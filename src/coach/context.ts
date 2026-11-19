@@ -44,6 +44,7 @@ export function buildCoachContext(input: {
     (sum, e) => sum + (e.durationMinutes ?? 0),
     0,
   );
+  const lastEffort = lastEffortFeedback(input);
 
   switch (classified.intent) {
     case "workoutsCount": {
@@ -120,7 +121,6 @@ export function buildCoachContext(input: {
       };
     }
     case "nextWorkout": {
-      const lastEffort = lastEffortFeedback(input);
       const latestByKey = new Map<string, ExerciseFact>();
       for (const f of input.exercises.filter((e) => e.completed)) {
         const cur = latestByKey.get(f.exerciseKey);
@@ -222,17 +222,41 @@ export function buildCoachContext(input: {
       return { ...base, facts, summaryLines: [line] };
     }
     default: {
+      // Open-ended questions ("how can I get stronger?", the doubling-strength
+      // repro, …) land here. Totals alone starve the model: the system prompt
+      // orders the insufficient-history line when the facts lack the answer,
+      // so per-exercise progression must travel with the request. Each entry
+      // carries the three notions the prompt glossary defines:
+      //   startingWeight → overall progression (first recorded session)
+      //   currentWeight + recentTrend → recent trend (two most recent sessions)
+      //   highestWeight → historical maximum (best single session)
       const facts = {
         totalWorkouts: stats.totalWorkouts,
         workoutsThisMonth: stats.workoutsThisMonth,
         currentWeek: stats.currentWeek,
         totalCardioMinutes: stats.totalCardioMinutes,
+        lifterProfile: "active-healthy-73yo-male-hypertrophy-fitness",
+        lastEffort,
+        exercises: progress.map((p) => ({
+          exerciseKey: p.exerciseKey,
+          exerciseName: p.exerciseName,
+          startingWeight: p.startingWeight,
+          currentWeight: p.currentWeight,
+          recentTrend: p.trend,
+          highestWeight: p.highestWeight,
+          totalSessions: p.totalSessions,
+          latestResult: p.latestResult,
+        })),
       };
       return {
         ...base,
         facts,
         summaryLines: [
           `You completed ${stats.totalWorkouts} workouts and ${stats.totalCardioMinutes} cardio minutes so far.`,
+          ...progress.map(
+            (p) =>
+              `${p.exerciseName}: ${p.startingWeight} lb → ${p.currentWeight} lb over ${p.totalSessions} sessions (recent trend ${p.trend}, historical max ${p.highestWeight} lb).`,
+          ),
         ],
       };
     }

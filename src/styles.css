@@ -320,6 +320,23 @@ dd {
   background: var(--blue-soft);
 }
 
+/* Label + safe reason shown above a deterministic fallback answer so it
+   never reads as a Gemini reply. */
+.chatFallback {
+  display: block;
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--ink);
+}
+
+.chatFallbackDetail {
+  display: block;
+  margin: 0 0 6px;
+  font-size: 15px;
+  color: var(--muted);
+}
+
 .quickRow {
   display: flex;
   flex-wrap: wrap;

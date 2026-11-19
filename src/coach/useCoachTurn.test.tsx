@@ -8,11 +8,17 @@ const mocks = vi.hoisted(() => ({
     sessions: [{ id: "s1", scheduledDate: "2026-09-07", status: "completed" as const }],
     exercises: [],
   })),
-  askCoach: vi.fn(async (input: {
-    context: { insufficient: boolean };
-  }) => {
+  askCoach: vi.fn<
+    (input: { context: { insufficient: boolean } }) => Promise<CoachAnswer>
+  >(async (input) => {
     void input;
-    return "You completed 1 workout this month.";
+    return {
+      text: "You completed 1 workout this month.",
+      source: "model",
+      diagnostic: null,
+      model: "gemini-2.5-flash",
+      promptVersion: "coach-chat-v3",
+    };
   }),
 }));
 
@@ -24,6 +30,7 @@ vi.mock("./chat", () => ({
 
 import { useCoachTurn } from "./useCoachTurn";
 import { defaultProfile, type Profile } from "../data/settings";
+import type { CoachAnswer } from "./chat";
 
 const db = {} as never;
 const app = {} as never;
@@ -34,7 +41,13 @@ beforeEach(() => {
     sessions: [{ id: "s1", scheduledDate: "2026-09-07", status: "completed" }],
     exercises: [],
   } as never);
-  mocks.askCoach.mockResolvedValue("You completed 1 workout this month.");
+  mocks.askCoach.mockResolvedValue({
+    text: "You completed 1 workout this month.",
+    source: "model" as const,
+    diagnostic: null,
+    model: "gemini-2.5-flash",
+    promptVersion: "coach-chat-v3",
+  });
 });
 
 describe("useCoachTurn · complete grounded turn", () => {
@@ -64,7 +77,7 @@ describe("useCoachTurn · complete grounded turn", () => {
     );
     expect(result.current.messages).toEqual([
       { role: "user", text: "How many workouts did I complete this month?" },
-      { role: "model", text: "You completed 1 workout this month." },
+      { role: "model", text: "You completed 1 workout this month.", source: "model" },
     ]);
   });
 
@@ -145,7 +158,13 @@ describe("useCoachTurn · complete grounded turn", () => {
   });
 
   it("uses the answer pipeline's deterministic facts when its model fallback resolves", async () => {
-    mocks.askCoach.mockResolvedValueOnce("You completed 1 workout this month (1 in total).");
+    mocks.askCoach.mockResolvedValueOnce({
+      text: "You completed 1 workout this month (1 in total).",
+      source: "deterministic" as const,
+      diagnostic: null,
+      model: null,
+      promptVersion: null,
+    });
     const { result } = renderHook(() => useCoachTurn({ db, uid: "u1", app }));
     await waitFor(() => expect(result.current.historyLoading).toBe(false));
 
@@ -191,6 +210,33 @@ describe("useCoachTurn · complete grounded turn", () => {
         }),
       }),
     );
+  });
+
+  it("marks a fallback answer so the screen can label it as not from Gemini", async () => {
+    mocks.askCoach.mockResolvedValueOnce({
+      text: "You completed 1 workout this month (1 in total).",
+      source: "deterministic",
+      diagnostic: {
+        category: "quota",
+        detail: "The AI quota for this period is used up. Try again later.",
+      },
+      model: null,
+      promptVersion: null,
+    });
+    const { result } = renderHook(() => useCoachTurn({ db, uid: "u1", app }));
+    await waitFor(() => expect(result.current.historyLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.send("How many workouts did I complete this month?");
+    });
+
+    expect(result.current.error).toBeNull();
+    expect(result.current.messages.at(-1)).toMatchObject({
+      role: "model",
+      text: "You completed 1 workout this month (1 in total).",
+      source: "deterministic",
+      diagnostic: { category: "quota" },
+    });
   });
 });
 

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from "vitest";
+import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   sendMessage: vi.fn(),
@@ -12,6 +12,8 @@ vi.mock("firebase/ai", () => ({
 }));
 
 import { buildCoachContext } from "./context";
+import { classifyQuestion } from "./intent";
+import { COACH_SYSTEM, PROMPT_VERSION } from "../ai/prompts/coach-chat";
 import { INSUFFICIENT_HISTORY, askCoach, deterministicAnswer } from "./chat";
 
 const context = buildCoachContext({
@@ -28,15 +30,21 @@ const emptyContext = buildCoachContext({
   today: new Date("2026-09-27T12:00:00Z"),
 });
 
+beforeEach(() => {
+  mocks.sendMessage.mockClear();
+  mocks.startChat.mockClear();
+});
+
 describe("askCoach", () => {
   it("returns the exact insufficient line without touching the model", async () => {
-    mocks.startChat.mockClear();
     const out = await askCoach({
       app: {} as never,
       question: "How many workouts?",
       context: emptyContext,
     });
-    expect(out).toBe(INSUFFICIENT_HISTORY);
+    expect(out.text).toBe(INSUFFICIENT_HISTORY);
+    expect(out.source).toBe("deterministic");
+    expect(out.diagnostic).toBeNull();
     expect(mocks.startChat).not.toHaveBeenCalled();
   });
 
@@ -50,7 +58,11 @@ describe("askCoach", () => {
       question: "How many workouts did I complete this month?",
       context,
     });
-    expect(out).toBe("You completed 1 workout this month.");
+    expect(out.text).toBe("You completed 1 workout this month.");
+    expect(out.source).toBe("model");
+    expect(out.diagnostic).toBeNull();
+    expect(out.model).toBe("gemini-2.5-flash");
+    expect(out.promptVersion).toBe("coach-chat-v3");
     const prompt = mocks.sendMessage.mock.calls[0][0] as string;
     expect(prompt).toContain('"totalWorkouts": 1');
     expect(prompt).toContain("Question: How many workouts");
@@ -63,6 +75,149 @@ describe("askCoach", () => {
       }),
     });
     const out = await askCoach({ app: {} as never, question: "hi", context });
-    expect(out).toBe(deterministicAnswer(context));
+    expect(out.text).toBe(deterministicAnswer(context));
+    expect(out.source).toBe("deterministic");
+    expect(out.diagnostic?.category).toBe("network");
+  });
+});
+
+const REPRO_QUESTION =
+  "What kind of weights would you put me on in order to double my strength in two months?";
+
+describe("askCoach · labeled fallback and safe diagnostics", () => {
+  it("labels the fallback and reports a safe diagnostic when the model call fails", async () => {
+    const raw =
+      "429 RESOURCE_EXHAUSTED: quota exceeded for project gym-progress-ai-lcherouri";
+    mocks.startChat.mockReturnValueOnce({
+      sendMessage: vi.fn(async () => {
+        throw new Error(raw);
+      }),
+    });
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined);
+    try {
+      const out = await askCoach({ app: {} as never, question: "hi", context });
+      expect(out.text).toBe(deterministicAnswer(context));
+      expect(out.source).toBe("deterministic");
+      expect(out.diagnostic?.category).toBe("quota");
+      expect(out.diagnostic?.detail).toContain("quota");
+      // The raw provider payload must never reach the answer or the logs.
+      expect(JSON.stringify(out)).not.toContain("RESOURCE_EXHAUSTED");
+      expect(JSON.stringify(out)).not.toContain("gym-progress-ai-lcherouri");
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("RESOURCE_EXHAUSTED");
+      expect(JSON.stringify(warn.mock.calls)).not.toContain("gym-progress-ai-lcherouri");
+      expect(warn).toHaveBeenCalledOnce();
+      expect(warn.mock.calls[0]?.[0]).toBe("[coach] Gemini call failed");
+      expect(warn.mock.calls[0]?.[1]).toEqual({
+        category: "quota",
+        detail: expect.any(String),
+        model: "gemini-2.5-flash",
+        promptVersion: "coach-chat-v3",
+      });
+    } finally {
+      warn.mockRestore();
+    }
+  });
+
+  it("treats an empty model answer as an unavailable model and falls back deterministically", async () => {
+    mocks.sendMessage.mockResolvedValueOnce({ response: { text: () => "" } });
+    mocks.startChat.mockReturnValueOnce({ sendMessage: mocks.sendMessage });
+    const out = await askCoach({ app: {} as never, question: "hi", context });
+    expect(out.text).toBe(deterministicAnswer(context));
+    expect(out.source).toBe("deterministic");
+    expect(out.diagnostic?.category).toBe("model");
+  });
+
+  it("flags App Check as the likely cause when it is inactive and the request is refused", async () => {
+    mocks.startChat.mockReturnValueOnce({
+      sendMessage: vi.fn(async () => {
+        throw new Error("403 PERMISSION_DENIED");
+      }),
+    });
+    // In the test environment no site key is configured, so App Check is
+    // "disabled" — a refused request with no token is expected to blame that.
+    const out = await askCoach({ app: {} as never, question: "hi", context });
+    expect(out.source).toBe("deterministic");
+    expect(out.diagnostic?.category).toBe("app-check");
+  });
+});
+
+describe("askCoach · general-intent facts (repro: doubling strength)", () => {
+  it("feeds open-ended strength questions the per-exercise facts", async () => {
+    const classified = classifyQuestion({
+      question: REPRO_QUESTION,
+      knownExercises: [],
+    });
+    expect(classified.intent).toBe("general");
+
+    const reproContext = buildCoachContext({
+      classified,
+      sessions: [
+        { id: "s1", scheduledDate: "2026-09-07", status: "completed" },
+        { id: "s2", scheduledDate: "2026-09-09", status: "completed" },
+        { id: "s3", scheduledDate: "2026-09-11", status: "completed" },
+      ],
+      exercises: [
+        {
+          sessionId: "s1",
+          scheduledDate: "2026-09-07",
+          exerciseKey: "leg-press",
+          exerciseName: "Leg Press",
+          completed: true,
+          weightUsed: 70,
+          difficulty: "good",
+          durationMinutes: null,
+        },
+        {
+          sessionId: "s2",
+          scheduledDate: "2026-09-09",
+          exerciseKey: "leg-press",
+          exerciseName: "Leg Press",
+          completed: true,
+          weightUsed: 72,
+          difficulty: "good",
+          durationMinutes: null,
+        },
+        {
+          sessionId: "s3",
+          scheduledDate: "2026-09-11",
+          exerciseKey: "leg-press",
+          exerciseName: "Leg Press",
+          completed: true,
+          weightUsed: 75,
+          difficulty: "good",
+          durationMinutes: null,
+        },
+      ],
+      today: new Date("2026-09-27T12:00:00Z"),
+    });
+    expect(reproContext.insufficient).toBe(false);
+
+    mocks.sendMessage.mockResolvedValueOnce({
+      response: { text: () => "Based on your Leg Press records, doubling in two months is not realistic. Keep adding 5 lb when sets feel easy." },
+    });
+    mocks.startChat.mockReturnValueOnce({ sendMessage: mocks.sendMessage });
+    const out = await askCoach({
+      app: {} as never,
+      question: REPRO_QUESTION,
+      context: reproContext,
+    });
+    expect(out.source).toBe("model");
+
+    const prompt = mocks.sendMessage.mock.calls[0][0] as string;
+    expect(prompt).toContain('"startingWeight": 70');
+    expect(prompt).toContain('"currentWeight": 75');
+    expect(prompt).toContain('"highestWeight": 75');
+    expect(prompt).toContain('"recentTrend": "up"');
+    expect(prompt).toContain(REPRO_QUESTION);
+  });
+});
+
+describe("coach-chat prompt contract", () => {
+  it("is versioned and explains the three progression notions plus honest goal-setting", async () => {
+    expect(PROMPT_VERSION).toBe("coach-chat-v3");
+    expect(COACH_SYSTEM).toContain("overall progression");
+    expect(COACH_SYSTEM).toContain("recent trend");
+    expect(COACH_SYSTEM).toContain("historical maximum");
+    expect(COACH_SYSTEM).toContain("not a realistic target");
   });
 });

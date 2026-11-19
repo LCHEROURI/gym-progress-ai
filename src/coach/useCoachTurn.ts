@@ -415,7 +415,15 @@ export function useCoachTurn(input: {
             context,
             history,
           });
-          setMessages((current) => [...current, { role: "model", text: answer }]);
+          setMessages((current) => [
+            ...current,
+            {
+              role: "model",
+              text: answer.text,
+              source: answer.source,
+              ...(answer.diagnostic ? { diagnostic: answer.diagnostic } : {}),
+            },
+          ]);
         } catch {
           setError("Could not reach the coach. Try again.");
         }
